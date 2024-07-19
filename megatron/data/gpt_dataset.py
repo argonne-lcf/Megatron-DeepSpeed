@@ -11,12 +11,18 @@ import torch
 from deepspeed.accelerator import get_accelerator
 from megatron import print_rank_0, is_rank_0, get_args
 from megatron.core import mpu
+from megatron.data import helpers
 from megatron.data.blendable_dataset import BlendableDataset
-from megatron.data.dataset_utils import get_datasets_weights_and_num_samples
+from megatron.data.dataset_utils import get_datasets_weights_and_num_samples, get_datasets_corpuses_weights_and_num_samples
 from megatron.data.dataset_utils import get_train_valid_test_split_
 from megatron.data.indexed_dataset import make_dataset as make_indexed_dataset
 
+from megatron.utils import PerfTrace, Profile
+from mpi4py import MPI
 
+dlp = Profile("DATASET")
+
+@dlp.log
 def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                     train_valid_test_num_samples,
                                     seq_length, seed, skip_warmup,
@@ -40,46 +46,175 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
 
         # Blending dataset.
         # Parse the values.
-        output = get_datasets_weights_and_num_samples(data_prefix,
+        output = get_datasets_corpuses_weights_and_num_samples(data_prefix,
                                                       train_valid_test_num_samples)
-        prefixes, weights, datasets_train_valid_test_num_samples = output
+        prefixes, corpuses, weights, datasets_train_valid_test_num_samples = output
+        corpus_list = sorted(set(corpuses))
         train_num_samples, valid_num_samples, test_num_samples = map(
             sum,
             zip(*datasets_train_valid_test_num_samples)
         )
 
-        # Build individual datasets.
+        class DatasetBuilder:
+            ''' 
+            This is for building individual dataset from each dataset file
+            '''
+            @dlp.log
+            def __init__(self, prefix, corpus, data_impl, splits_string,
+                         num_samples, seq_length, seed, skip_warmup,
+                         return_doc_ids,
+                         data_cache_path=data_cache_path, name='train'):
+                self.prefix = prefix
+                self.data_impl = data_impl
+                self.splits_string = splits_string
+                if name == 'train':
+                    self.num_samples = num_samples[0]
+                elif name == 'valid':
+                    self.num_samples = num_samples[1]
+                else:
+                    self.num_samples = num_samples[2]
+                self.num_samples_train_valid_test = num_samples
+                self.seq_length = seq_length
+                self.seed = seed
+                self.skip_warmup = skip_warmup
+                self.return_doc_ids = return_doc_ids
+                self.data_cache_path = data_cache_path
+                self.dataset = None
+                self.name = name
+                self.desc = prefix + f"{self.num_samples}" + f"{seq_length}" + f"{seed}"
+                self.build = False
+                self.corpus = corpus
+            @dlp.log
+            def Build(self):
+                self.dataset = _build_train_valid_test_datasets_single(self.prefix, self.data_impl, self.splits_string,
+                    self.num_samples_train_valid_test, self.seq_length, self.seed, self.skip_warmup, self.name, self.return_doc_ids, 
+                    data_cache_path=self.data_cache_path)
+                self.build = True
+                return self.dataset
+
+        class BuildConcatDataset(torch.utils.data.Dataset):
+            @dlp.log
+            def __init__(self, dataset_builders):
+                self.dataset_builders = dataset_builders
+                self.num_datasets = len(dataset_builders)
+                self.num_samples = np.sum([d.num_samples for d in dataset_builders])
+                self.indices=np.zeros((self.num_samples, 2), dtype=np.uint64)
+                self.desc="ConcatDataset:"
+                m = 0
+                num_samples_list = np.array([d.num_samples for d in dataset_builders])
+                self.num_samples = np.sum(num_samples_list)
+                def _build_indices():
+                    start_time = time.time()
+                    dataset_index = np.zeros(self.num_samples, dtype=np.int64)
+                    dataset_sample_index = np.zeros(self.num_samples, dtype=np.int64)
+                    helpers.build_concat_indices(dataset_index, dataset_sample_index,
+                                                 num_samples_list, 
+                                                 self.num_datasets, 
+                                                 torch.distributed.get_rank()==0)
+                    print_rank_0('> elapsed time for building concat dataset indices: '
+                                 '{:.2f} (sec)'.format(time.time() - start_time))
+                    return dataset_index, dataset_sample_index
+                
+                self.dataset_index, self.dataset_sample_index = _build_indices()
+                for i in range(self.num_datasets):
+                    self.desc += dataset_builders[i].prefix + ","
+
+                self.desc += f"-{self.num_samples}" + f"-{dataset_builders[0].seq_length}" + f"{dataset_builders[0].seed}"
+            def __len__(self):
+                return self.num_samples
+
+            @dlp.log
+            def __getitem__(self, idx):
+                if idx >= self.num_samples:
+                    print_rank_0(f"WARNING: index overflow encountered {idx} > {self.num_samples} for {self.dataset_builders[0].corpus}; will randomly pick one sample")
+                    id = np.random.randint(self.num_samples)
+                else:
+                    id = idx
+                i = self.dataset_index[idx]
+                j = self.dataset_sample_index[idx]
+                if self.dataset_builders[i].build:
+                    return self.dataset_builders[i].dataset[j]
+                else:
+                    return self.dataset_builders[i].Build()[j]
+            
+
+        # Predetermine whether need to build the specific dataset or not. 
+        start_time = time.time()
+        print_rank_0(" >>> Started building datasets in distributed way ... ")
+
+        a, b, c = [int(d) for d in splits_string.split(",")]
+
         train_datasets = []
         valid_datasets = []
         test_datasets = []
-        for i in range(len(prefixes)):
-            train_ds, valid_ds, test_ds = _build_train_valid_test_datasets(
-                prefixes[i], data_impl, splits_string,
-                datasets_train_valid_test_num_samples[i],
-                seq_length, seed, skip_warmup,
-                return_doc_ids,
-                data_cache_path=data_cache_path)
-            if train_ds:
-                train_datasets.append(train_ds)
-            if valid_ds:
-                valid_datasets.append(valid_ds)
-            if test_ds:
-                test_datasets.append(test_ds)
+        # Build individual datasets.
 
+        @dlp.log
+        def build_corpus_datasets(dataset_type='train'):
+            start_time = time.time()
+            print_rank_0(" >>> Building {dataset_type} corpus datasets ...")
+            datasets = []
+            corpus_builders = {}
+            corpus_weights = {}
+            for c in corpus_list:
+                corpus_builders[c] = []
+                corpus_weights[c] = 0.0
+            dataset_builders = [DatasetBuilder(prefixes[i], corpuses[i], data_impl, splits_string,
+                                               datasets_train_valid_test_num_samples[i],
+                                               seq_length, seed, skip_warmup,
+                                               return_doc_ids,data_cache_path, dataset_type) for i in  range(len(weights))]
+            for i in range(torch.distributed.get_rank(), len(weights), torch.distributed.get_world_size()):
+                dataset_builders[i].Build()
+            print_rank_0(f" >>> Finished building individual datasets in {time.time() - start_time} seconds")
+            start_concating_time = time.time()
+            for i, d in zip(range(len(weights)), dataset_builders):
+                corpus_builders[d.corpus].append(d)
+                corpus_weights[d.corpus] += weights[i]
+            total = 0
+            print_rank_0(" > number of samples for each corpus ")
+            corpus_weights_achieved={}
+            for c in corpus_list:
+                datasets.append(BuildConcatDataset(corpus_builders[c]))
+                total += datasets[-1].num_samples
+                corpus_weights_achieved[c] =  float(datasets[-1].num_samples)/train_num_samples                
+                print_rank_0(f"    {c}: {datasets[-1].num_samples} w={corpus_weights_achieved[c]} (expected: {corpus_weights[c]})")
+            
+            print_rank_0(f" > total number of samples: {total}")
+            print_rank_0(f" >>> Finished concatenating datasets in {time.time() - start_concating_time} seconds")
+            print_rank_0(f" >>> Finished building {dataset_type} corpus datasets in {time.time() - start_time} seconds")
+            return datasets, [corpus_weights_achieved[c] for c in corpus_list]
+
+        if a > 0:
+            train_datasets, train_weights = build_corpus_datasets('train')
+
+        if b > 0:
+            valid_datasets, valid_weights = build_corpus_datasets('valid')
+            
+        if c > 0:            
+            test_datasets, test_weights = build_corpus_datasets('test')
+
+        # This barrier is critical to make sure that all the datasets are built once
+        # and the metadata were written to the cache folder before other ranks touch them
+        print_rank_0(f" >>> Rank 0 - finished building datasets in {time.time() - start_time} seconds")                
+        MPI.COMM_WORLD.Barrier()
+        print_rank_0(f" >>> Finished building datasets (all ranks) in distributed way in {time.time() - start_time} seconds")
+        print_rank_0(f" >>> Starting to build BlendableDataset")
         # Blend.
+        start_time = time.time()
         blending_train_dataset = None
         if train_datasets:
-            blending_train_dataset = BlendableDataset(train_datasets, weights, train_num_samples,
+            blending_train_dataset = BlendableDataset(train_datasets, train_weights, train_num_samples,
                                                       data_cache_path=data_cache_path)
         blending_valid_dataset = None
         if valid_datasets:
-            blending_valid_dataset = BlendableDataset(valid_datasets, weights, valid_num_samples,
+            blending_valid_dataset = BlendableDataset(valid_datasets, valid_weights, valid_num_samples,
                                                       data_cache_path=data_cache_path)
         blending_test_dataset = None
         if test_datasets:
-            blending_test_dataset = BlendableDataset(test_datasets, weights, test_num_samples,
+            blending_test_dataset = BlendableDataset(test_datasets, test_weights, test_num_samples,
                                                      data_cache_path=data_cache_path)
-
+        end_time = time.time()
+        print_rank_0(f" >>> Finished building BlendableDataset in {end_time - start_time} seconds")
         return (blending_train_dataset, blending_valid_dataset,
                 blending_test_dataset)
 
@@ -112,7 +247,7 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
 
         return (train_dataset, valid_dataset, test_dataset)
 
-
+@dlp.log
 def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                      train_valid_test_num_samples,
                                      seq_length, seed, skip_warmup,
@@ -159,7 +294,56 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
 
     return (train_dataset, valid_dataset, test_dataset)
 
+@dlp.log
+def _build_train_valid_test_datasets_single(data_prefix, data_impl, splits_string,
+                            train_valid_test_num_samples,
+                            seq_length, seed, skip_warmup, name, 
+                            return_doc_ids=False, *,
+                            data_cache_path=None):
+    """Build train, valid, and test datasets."""
 
+    # Each rank print out information
+    print_rank_0(f" >> building dataset for {data_prefix}")
+    # Indexed dataset.
+    indexed_dataset = get_indexed_dataset_(data_prefix,
+                                           data_impl,
+                                           skip_warmup)
+
+    total_num_of_documents = indexed_dataset.sizes.shape[0]
+    splits = get_train_valid_test_split_(splits_string, total_num_of_documents)
+
+    # Print stats about the splits.
+    print_rank_0(' > dataset split:')
+
+    def print_split_stats(name, index):
+        print_rank_0('    {}:'.format(name))
+        print_rank_0('     document indices in [{}, {}) total of {} '
+                     'documents'.format(splits[index], splits[index + 1],
+                                        splits[index + 1] - splits[index]))
+    print_split_stats('train', 0)
+    print_split_stats('validation', 1)
+    print_split_stats('test', 2)
+
+    def build_dataset(index, name):
+        dataset = None
+        if splits[index + 1] > splits[index]:
+            documents = np.arange(start=splits[index], stop=splits[index + 1],
+                                  step=1, dtype=np.int32)
+            dataset = GPTDataset(name, data_prefix, documents, indexed_dataset,
+                                 splits_string,
+                                 train_valid_test_num_samples[index],
+                                 seq_length, seed,
+                                 return_doc_ids,
+                                 data_cache_path=data_cache_path)
+        return dataset
+    if name.find("train")!=-1:
+        return build_dataset(0, 'train')
+    if name.find("valid")!=-1:
+        return build_dataset(1, 'valid')
+    if name.find("test")!=-1:
+        return build_dataset(2, 'test')
+
+@dlp.log
 def build_dataset(dataset_name, data_prefix, data_impl,
                   splits_string, num_samples,
                   seq_length, seed, skip_warmup,
@@ -194,7 +378,7 @@ def build_dataset(dataset_name, data_prefix, data_impl,
 
     return dataset
 
-
+@dlp.log
 def _build_dataset(dataset_name, data_prefix, data_impl, splits_string,
                    num_samples, seq_length, seed, skip_warmup,
                    *,
@@ -224,7 +408,7 @@ def _build_dataset(dataset_name, data_prefix, data_impl, splits_string,
 
     return dataset
 
-
+@dlp.log
 def get_indexed_dataset_(data_prefix, data_impl, skip_warmup):
     """Build indexed dataset."""
     print_rank_0(' > building dataset index ...')
@@ -242,7 +426,7 @@ def get_indexed_dataset_(data_prefix, data_impl, skip_warmup):
 
 
 class GPTDataset(torch.utils.data.Dataset):
-
+    @dlp.log
     def __init__(self, name, data_prefix, documents, indexed_dataset,
                  splits_string, num_samples, seq_length, seed,
                  return_doc_ids=False, *,
@@ -268,7 +452,7 @@ class GPTDataset(torch.utils.data.Dataset):
         # -1 is due to data structure used to retieve the index:
         #    sample i --> [sample_idx[i], sample_idx[i+1])
         return self.sample_idx.shape[0] - 1
-
+    @dlp.log
     def __getitem__(self, idx):
         args = get_args()
         orig_idx = idx
@@ -341,7 +525,7 @@ class GPTDataset(torch.utils.data.Dataset):
 
         return sample_dict
 
-
+@dlp.log
 def _build_index_mappings(name, data_prefix, documents, sizes,
                           splits_string, num_samples, seq_length, seed,
                           *,
@@ -413,9 +597,11 @@ def _build_index_mappings(name, data_prefix, documents, sizes,
     data_cache_success = True
 
     # Build the indexed mapping if not exist.
-    if build_indices and is_rank_0():
-        print_rank_0(' > WARNING: could not find index map files, building '
-                     'the indices on rank 0 ...')
+    if build_indices:
+        # Since this function will be called by all the rank in the very beginning. Therefore, we assume that all the 
+        # ranks will first create the document files, and then read it. 
+        # There will not be contension effects going on either
+        print_rank_0(f" > WARNING: could not find index map files, building on rank {torch.distributed.get_rank()}")
 
         # For the last epoch, decide whether include the entire epoch
         # in the global shuffle or not.
@@ -424,8 +610,8 @@ def _build_index_mappings(name, data_prefix, documents, sizes,
         # not mean anything.
         if num_epochs == 1:
             separate_last_epoch = False
-            print(' > only one epoch required, setting '
-                  'separate_last_epoch to False', flush=True)
+            print_rank_0(' > only one epoch required, setting '
+                  'separate_last_epoch to False')
 
         else:
             # Get the number of samples for the last epoch
@@ -452,8 +638,8 @@ def _build_index_mappings(name, data_prefix, documents, sizes,
                 string = ' > last epoch number of samples ({}) is larger '\
                          'than 80% of number of samples per epoch ({}), '\
                          'setting separate_last_epoch to False'
-            print(string.format(last_epoch_num_samples,
-                                num_samples_per_epoch), flush=True)
+            print_rank_0(string.format(last_epoch_num_samples,
+                                num_samples_per_epoch))
 
 
         try:
@@ -478,7 +664,7 @@ def _build_index_mappings(name, data_prefix, documents, sizes,
             assert doc_idx.dtype == np.int32
             assert sizes.dtype == np.int32
             sample_idx = helpers.build_sample_idx(sizes, doc_idx, seq_length,
-                                                  num_epochs, tokens_per_epoch)
+                                                  num_epochs, tokens_per_epoch, torch.distributed.get_rank()==0)
             np.save(idx_path['sample'], sample_idx, allow_pickle=True)
             print_rank_0(' > elasped time to build and save sample-idx mapping '
                          '(seconds): {:4f}'.format(time.time() - start_time))
@@ -502,16 +688,6 @@ def _build_index_mappings(name, data_prefix, documents, sizes,
             print('ensure you have write access to this directory or specify one that you do have')
             print('write access to.')
             data_cache_success = False
-
-    counts = get_accelerator().LongTensor([data_cache_success])
-    torch.distributed.all_reduce(counts, group=mpu.get_data_parallel_group())
-    torch.distributed.all_reduce(counts, group=mpu.get_pipeline_model_parallel_group())
-    if counts[0].item() != (
-        torch.distributed.get_world_size() //
-        torch.distributed.get_world_size(group=mpu.get_tensor_model_parallel_group()) //
-        torch.distributed.get_world_size(group=mpu.get_sequence_parallel_group())):
-        print_rank_0("Data index creation unsuccessful, exiting.")
-        exit()
 
     # Load mappings.
     start_time = time.time()
@@ -552,7 +728,7 @@ def _num_epochs(tokens_per_epoch, seq_length, num_samples):
         if ((total_tokens - 1) // seq_length) >= num_samples:
             return num_epochs
 
-
+@dlp.log
 def _build_doc_idx(documents, num_epochs, np_rng, separate_last_epoch):
     """Build an array with length = number-of-epochs * number-of-dcuments.
     Each index is mapped to a corresponding document."""
@@ -568,7 +744,7 @@ def _build_doc_idx(documents, num_epochs, np_rng, separate_last_epoch):
     doc_idx_last = _build_doc_idx(documents, 1, np_rng, False)
     return np.concatenate((doc_idx_first, doc_idx_last))
 
-
+@dlp.log
 def _build_sample_idx(sizes, doc_idx, seq_length,
                       num_epochs, tokens_per_epoch):
     """Sample index mapping is a 2D array with sizes
@@ -617,11 +793,11 @@ def _build_sample_idx(sizes, doc_idx, seq_length,
 
     return sample_idx
 
-
+@dlp.log
 def _build_shuffle_idx(num_samples, total_size, np_rng):
     """Build the range [0, size) and shuffle."""
-    print(' > building shuffle index with split [0, {}) and [{}, {}) '
-          '...'.format(num_samples, num_samples, total_size), flush=True)
+    print_rank_0(' > building shuffle index with split [0, {}) and [{}, {}) '
+          '...'.format(num_samples, num_samples, total_size))
 
     dtype_ = np.uint32
     if total_size >= (np.iinfo(np.uint32).max - 1):

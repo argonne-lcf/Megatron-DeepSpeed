@@ -40,6 +40,18 @@ DSET_TYPE_T5  = 't5'
 
 DSET_TYPES = [DSET_TYPE_BERT, DSET_TYPE_ICT, DSET_TYPE_T5]
 
+def get_datasets_corpuses_weights_and_num_samples(data_prefix, train_valid_test_num_samples):
+    assert len(data_prefix) % 3 == 0
+    num_datasets = len(data_prefix) // 3
+    data_new_prefix = []
+    corpuses = []
+    for i in range(num_datasets):
+        data_new_prefix += [data_prefix[3*i], data_prefix[3*i+1]]
+        corpuses.append(data_prefix[3*i+2])
+    prefixes, weights, datasets_train_valid_test_num_samples = \
+        get_datasets_weights_and_num_samples(data_new_prefix,
+                                             train_valid_test_num_samples)
+    return prefixes, corpuses, weights, datasets_train_valid_test_num_samples
 
 def get_datasets_weights_and_num_samples(data_prefix,
                                          train_valid_test_num_samples):

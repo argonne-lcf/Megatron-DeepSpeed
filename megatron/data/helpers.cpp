@@ -15,7 +15,23 @@ namespace py = pybind11;
 using namespace std;
 
 const int32_t LONG_SENTENCE_LEN = 512;
-
+void build_concat_indices(py::array_t<int64_t>& dataset_index, py::array_t<int64_t>& dataset_sample_index,
+			  const py::array_t<int64_t> &num_samples,
+			  const int64_t num_datasets, const bool verbose) {
+  if (verbose) {
+    std::cout << "> building indices for corpus datasets ..." << std::endl;    
+  }
+  auto dataset_index_ptr = dataset_index.mutable_unchecked<1>();
+  auto num_samples_ptr = num_samples.unchecked<1>();  
+  auto dataset_sample_index_ptr = dataset_sample_index.mutable_unchecked<1>();  
+  int64_t m = 0; 
+  for(uint64_t i=0; i<num_datasets; i++)
+    for(uint64_t j=0; j<num_samples_ptr[i]; j++) {
+      dataset_index_ptr[m] = i;
+      dataset_sample_index_ptr[m] = j;
+      m++;
+    }
+}
 
 void build_blending_indices(py::array_t<int64_t>& dataset_index,
 			    py::array_t<int64_t>& dataset_sample_index,
@@ -84,7 +100,7 @@ py::array build_sample_idx(const py::array_t<int32_t>& sizes_,
 			   const py::array_t<int32_t>& doc_idx_,
 			   const int32_t seq_length,
 			   const int32_t num_epochs,
-			   const int64_t tokens_per_epoch) {
+			   const int64_t tokens_per_epoch, const bool verbose=false) {
     /* Sample index (sample_idx) is used for gpt2 like dataset for which
        the documents are flattened and the samples are built based on this
        1-D flatten array. It is a 2D array with sizes [number-of-samples + 1, 2]
@@ -103,16 +119,17 @@ py::array build_sample_idx(const py::array_t<int32_t>& sizes_,
     // Mapping and it's length (1D).
     int64_t num_samples = (num_epochs * tokens_per_epoch - 1) / seq_length;
     int64_t* sample_idx = new int64_t[2*(num_samples+1)];
-
-    cout << "    using:" << endl << std::flush;
-    cout << "     number of documents:       " <<
-      doc_idx_.shape(0) / num_epochs << endl << std::flush;
-    cout << "     number of epochs:          " << num_epochs <<
-      endl << std::flush;
-    cout << "     sequence length:           " << seq_length <<
-      endl << std::flush;
-    cout << "     total number of samples:   " << num_samples <<
-      endl << std::flush;
+    if (verbose) {
+      cout << "    using:" << endl << std::flush;
+      cout << "     number of documents:       " <<
+	doc_idx_.shape(0) / num_epochs << endl << std::flush;
+      cout << "     number of epochs:          " << num_epochs <<
+	endl << std::flush;
+      cout << "     sequence length:           " << seq_length <<
+	endl << std::flush;
+      cout << "     total number of samples:   " << num_samples <<
+	endl << std::flush;
+    }
 
     // Index into sample_idx.
     int64_t sample_index = 0;
@@ -698,4 +715,5 @@ PYBIND11_MODULE(helpers, m) {
     m.def("build_blocks_mapping", &build_blocks_mapping);
     m.def("build_sample_idx", &build_sample_idx);
     m.def("build_blending_indices", &build_blending_indices);
+    m.def("build_concat_indices", &build_concat_indices);
 }

@@ -21,6 +21,7 @@ from .global_vars import get_args
 from .utils import (unwrap_model,
                     print_rank_0,
                     is_rank_0)
+from .utils import PerfTrace, Profile
 
 from deepspeed.checkpoint import (
     ORIGINAL_VOCAB_SIZE,
@@ -40,6 +41,7 @@ _CHECKPOINT_VERSION = None
 
 _CHECKPOINT_TASK_LIST = []
 _CHECKPOINT_NUM_TASKS = 0
+dlp = Profile("CHECKPOINT")
 def set_checkpoint_version(value):
     global _CHECKPOINT_VERSION
     if _CHECKPOINT_VERSION is not None:
@@ -168,7 +170,7 @@ def get_checkpoint_tracker_filename(checkpoints_path):
     training to restart from."""
     return os.path.join(checkpoints_path, 'latest_checkpointed_iteration.txt')
 
-
+@dlp.log
 def read_metadata(tracker_filename):
     # Read the tracker file and either set the iteration or
     # mark it as a release checkpoint.
@@ -208,7 +210,7 @@ def read_metadata(tracker_filename):
         max_iter = iteration
     return max_iter, release
 
-
+@dlp.log
 def get_rng_state():
     """ collect rng state across data parallel ranks """
     args = get_args()
@@ -236,8 +238,7 @@ def get_rng_state():
 from multiprocessing import Process
                 
 
-
-                    
+@dlp.log                    
 def save_checkpoint_sync(iteration, model, optimizer, opt_param_scheduler):
     """Save a model checkpoint."""
     args = get_args()
@@ -374,6 +375,7 @@ def save_checkpoint(iteration, model, optimizer, opt_param_scheduler):
         save_checkpoint_sync(iteration, model, optimizer, opt_param_scheduler)
 
 
+@dlp.log
 def _transpose_first_dim(t, num_splits, num_splits_first, model):
     input_shape = t.size()
     # We use a self_attention module but the values extracted aren't
@@ -443,7 +445,7 @@ def fix_query_key_value_ordering(model, checkpoint_version):
         print_rank_0(" succesfully fixed query-key-values ordering for"
                     " checkpoint version {}".format(checkpoint_version))
 
-
+@dlp.log
 def _load_base_checkpoint(load_dir, rank0=False):
     """ Load the base state_dict from the given directory
 
@@ -498,7 +500,7 @@ def _load_base_checkpoint(load_dir, rank0=False):
 
     return state_dict, release
 
-
+@dlp.log
 def load_args_from_checkpoint(args, load_arg='load'):
     """Set required arguments from the checkpoint specified in the
     arguments.
@@ -579,7 +581,7 @@ def load_args_from_checkpoint(args, load_arg='load'):
         _set_arg('num_layers_per_virtual_pipeline_stage')
     return args, checkpoint_args
 
-
+@dlp.log
 def load_lr_state_dict(strict: bool = False) -> dict:
     """Load {iteration, lr} from .yaml file when restoring from checkpoint."""
     args = get_args()
@@ -603,7 +605,7 @@ def load_lr_state_dict(strict: bool = False) -> dict:
         )
     return lr_state_dict
 
-
+@dlp.log
 def save_lr_state_dict() -> None:
     """Save {iteration, lr} to .yaml file for safe-keeping.
 
@@ -625,7 +627,7 @@ def save_lr_state_dict() -> None:
             f
         )
 
-
+@dlp.log
 def load_checkpoint(
         model,
         optimizer,
@@ -846,7 +848,7 @@ def load_checkpoint(
 
     return iteration
 
-
+@dlp.log
 def load_biencoder_checkpoint(model, only_query_model=False,
         only_context_model=False, custom_load_path=None):
     """

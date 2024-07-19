@@ -1,4 +1,17 @@
 # User Added
+.jobenv
+**.e[0-9]**
+**.o[0-9]**
+**.e6**
+**.o6**
+**.e9**
+**.o9**
+**.e1**
+**.o1**
+*.o17*
+*.e17*
+*.o1
+*.e1
 deps/*
 OUTPUTS/*
 ALCF/OUTPUTS/*
@@ -9,16 +22,12 @@ ALCF/OUTPUTS/*
 **index-cache**
 **pbslogs**
 ezpz
-*.o17*
-*.e17*
 *hostfile*
 .deepspeed_env
 *.DS_Store
 old/*
 **venv**
 *.json
-*.o1
-*.e1
 outputs/
 venvs/
 wandb/

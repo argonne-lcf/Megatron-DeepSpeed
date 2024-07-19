@@ -17,7 +17,9 @@ from megatron.core.utils import get_attr_wrapped_model, get_model_type, get_mode
 from megatron.utils import print_rank_0, unwrap_model
 from megatron.model import DistributedDataParallel as LocalDDP
 from megatron.model import Float16Module
+from megatron.utils import Profile
 
+dlp = Profile("CORE")
 # Types
 Shape = Union[List[int], torch.Size]
 
@@ -124,6 +126,7 @@ def deallocate_output_tensor(out, deallocate_pipeline_outputs=False):
         dtype = out.dtype,
     )
 
+@dlp.log    
 def custom_backward(output, grad_output):
     '''Directly call C++ autograd engine.
 
@@ -162,7 +165,7 @@ def custom_backward(output, grad_output):
 
 
 
-
+@dlp.log
 def forward_step(forward_step_func,
                  data_iterator,
                  model,
@@ -227,7 +230,7 @@ def forward_step(forward_step_func,
         return output_tensor
     return [output_tensor]
 
-
+@dlp.log
 def backward_step(
         input_tensor,
         output_tensor,
@@ -305,7 +308,7 @@ def backward_step(
         config.timers('backward-compute').stop()
     return input_tensor_grad
 
-
+@dlp.log
 def forward_backward_no_pipelining(*,
                                    forward_step_func,
                                    data_iterator: Union[Iterator, List[Iterator]],
@@ -352,7 +355,7 @@ def forward_backward_no_pipelining(*,
     forward_data_store = []
     input_tensor, output_tensor_grad = None, None
     with no_sync_func():
-        for i in range(num_microbatches - 1):
+        for i in dlp.iter(range(num_microbatches - 1)):
             output_tensor = forward_step(forward_step_func, data_iterator, model, num_microbatches,
                                          input_tensor, forward_data_store, config, collect_non_loss_data)
             if not forward_only:
@@ -370,7 +373,7 @@ def forward_backward_no_pipelining(*,
 
     return forward_data_store
 
-
+@dlp.log
 def forward_backward_pipelining_with_interleaving(*,
                                                   forward_step_func,
                                                   data_iterator: Union[Iterator, List[Iterator]],
@@ -923,7 +926,7 @@ def get_tensor_shapes(*,
     return tensor_shapes
 
 
-
+@dlp.log
 def recv_forward(tensor_shapes, config):
     input_tensors = []
     for tensor_shape in tensor_shapes:
@@ -933,7 +936,7 @@ def recv_forward(tensor_shapes, config):
             input_tensors.append(p2p_communication.recv_forward(tensor_shape, config))
     return input_tensors
 
-
+@dlp.log
 def recv_backward(tensor_shapes, config):
     output_tensor_grads = []
     for tensor_shape in tensor_shapes:
@@ -943,7 +946,7 @@ def recv_backward(tensor_shapes, config):
             output_tensor_grads.append(p2p_communication.recv_backward(tensor_shape, config))
     return output_tensor_grads
 
-
+@dlp.log
 def send_forward(output_tensors, tensor_shapes, config):
     if not isinstance(output_tensors, list):
         output_tensors = [output_tensors]
@@ -952,7 +955,7 @@ def send_forward(output_tensors, tensor_shapes, config):
             continue
         p2p_communication.send_forward(output_tensor, config)
 
-
+@dlp.log
 def send_backward(input_tensor_grads, tensor_shapes, config):
     if not isinstance(input_tensor_grads, list):
         input_tensor_grads = [input_tensor_grads]
@@ -961,7 +964,7 @@ def send_backward(input_tensor_grads, tensor_shapes, config):
             continue
         p2p_communication.send_backward(input_tensor_grad, config)
 
-
+@dlp.log
 def send_forward_recv_backward(output_tensors, tensor_shapes, config):
     if not isinstance(output_tensors, list):
         output_tensors = [output_tensors]
@@ -975,7 +978,7 @@ def send_forward_recv_backward(output_tensors, tensor_shapes, config):
         output_tensor_grads.append(output_tensor_grad)
     return output_tensor_grads
 
-
+@dlp.log
 def send_backward_recv_forward(input_tensor_grads, tensor_shapes, config):
     if not isinstance(input_tensor_grads, list):
         input_tensor_grads = [input_tensor_grads]
@@ -989,7 +992,7 @@ def send_backward_recv_forward(input_tensor_grads, tensor_shapes, config):
         input_tensors.append(input_tensor)
     return input_tensors
 
-
+@dlp.log
 def forward_backward_pipelining_without_interleaving(*,
                                                      forward_step_func,
                                                      data_iterator: Union[Iterator, List[Iterator]],

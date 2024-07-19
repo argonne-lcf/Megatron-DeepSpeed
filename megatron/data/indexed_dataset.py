@@ -22,7 +22,9 @@ from itertools import accumulate
 import numpy as np
 import torch
 from megatron import print_rank_0
+from megatron.utils import Profile
 
+dlp = Profile("DATASET")
 
 def __best_fitting_dtype(vocab_size=None):
     if vocab_size is not None and vocab_size < 65500:
@@ -136,7 +138,7 @@ class IndexedDataset(torch.utils.data.Dataset):
         self.path = path
         self.data_file = None
         self.read_index(path)
-
+    @dlp.log
     def read_index(self, path):
         with open(index_file_path(path), 'rb') as f:
             magic = f.read(8)
@@ -154,7 +156,7 @@ class IndexedDataset(torch.utils.data.Dataset):
             self.data_offsets = read_longs(f, self._len + 1)
             self.sizes = read_longs(f, self.s)
             self.doc_idx = read_longs(f, self.doc_count)
-
+    @dlp.log
     def read_data(self, path):
         self.data_file = open(data_file_path(path), 'rb', buffering=0)
 
@@ -167,6 +169,7 @@ class IndexedDataset(torch.utils.data.Dataset):
             self.data_file.close()
 
     # @lru_cache(maxsize=8)
+    @dlp.log
     def __getitem__(self, idx):
         if not self.data_file:
             self.read_data(self.path)
@@ -221,7 +224,7 @@ class IndexedCachedDataset(IndexedDataset):
     @property
     def supports_prefetch(self):
         return True
-
+    @dlp.log
     def prefetch(self, indices):
         if all(i in self.cache_index for i in indices):
             return
@@ -247,6 +250,7 @@ class IndexedCachedDataset(IndexedDataset):
             self.data_file = None
 
     # @lru_cache(maxsize=8)
+    @dlp.log
     def __getitem__(self, idx):
         if isinstance(idx, int):
             i = idx
@@ -274,7 +278,7 @@ class IndexedDatasetBuilder(object):
         np.float32: 4,
         np.float64: 8,
     }
-
+    @dlp.log
     def __init__(self, out_file, dtype=np.int32):
         self.out_file = open(out_file, 'wb')
         self.dtype = dtype
@@ -283,7 +287,7 @@ class IndexedDatasetBuilder(object):
         self.sizes = []
         self.element_size = self.element_sizes[self.dtype]
         self.doc_idx = [0]
-
+    @dlp.log
     def add_item(self, tensor):
         bytes = self.out_file.write(np.array(tensor.numpy(), dtype=self.dtype))
         self.data_offsets.append(self.data_offsets[-1] + bytes / self.element_size)
@@ -293,7 +297,7 @@ class IndexedDatasetBuilder(object):
 
     def end_document(self):
         self.doc_idx.append(len(self.sizes))
-
+    @dlp.log
     def merge_file_(self, another_file):
         index = IndexedDataset(another_file)
         assert index.dtype == self.dtype
@@ -333,7 +337,7 @@ class IndexedDatasetBuilder(object):
         write_longs(index, self.doc_idx)
         index.close()
 
-
+@dlp.log
 def _warmup_mmap_file(path):
     with open(path, 'rb') as stream:
         while stream.read(100 * 1024 * 1024):
@@ -399,7 +403,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
                     # compute element sizes in bytes
                     pointers, _ = get_pointers_with_total(sizes, dtype().itemsize, npdtype)
                     return pointers
-
+                @dlp.log
                 def write(self, sizes, doc_idx):
                     self._file.write(struct.pack('<Q', len(sizes)))
                     self._file.write(struct.pack('<Q', len(doc_idx)))
@@ -421,6 +425,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
 
             return _Writer()
 
+        @dlp.log
         def __init__(self, path, skip_warmup=False):
             with open(path, 'rb') as stream:
                 magic_test = stream.read(9)
@@ -496,6 +501,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
     def __setstate__(self, state):
         self._do_init(state, skip_warmup=True)
 
+    @dlp.log
     def _do_init(self, path, skip_warmup):
         self._path = path
         self._index = self.Index(index_file_path(self._path), skip_warmup)
@@ -518,6 +524,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         return len(self._index)
 
     # @lru_cache(maxsize=8)
+    @dlp.log
     def __getitem__(self, idx):
         if isinstance(idx, (int, np.integer)):
             ptr, size = self._index[idx]
@@ -539,6 +546,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         else:
             raise TypeError("Unexpected type received for idx: {}".format(type(idx)))
 
+    @dlp.log
     def get(self, idx, offset=0, length=None):
         """ Retrieves a single item from the dataset with the option to only
         return a portion of the item.
@@ -591,12 +599,12 @@ class MMapIndexedDatasetBuilder(object):
         self._dtype = dtype
         self._sizes = []
         self._doc_idx = [0]
-
+    @dlp.log
     def add_item(self, tensor):
         np_array = np.array(tensor.numpy(), dtype=self._dtype)
         self._data_file.write(np_array.tobytes(order='C'))
         self._sizes.append(np_array.size)
-
+    @dlp.log
     def add_doc(self, tensor, sizes):
         np_array = np.array(tensor, dtype=self._dtype)
         self._data_file.write(np_array.tobytes(order='C'))
@@ -605,7 +613,7 @@ class MMapIndexedDatasetBuilder(object):
 
     def end_document(self):
         self._doc_idx.append(len(self._sizes))
-
+    @dlp.log
     def merge_file_(self, another_file):
         # Concatenate index
         index = MMapIndexedDataset.Index(index_file_path(another_file))
