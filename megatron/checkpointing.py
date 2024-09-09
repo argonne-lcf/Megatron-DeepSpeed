@@ -39,6 +39,8 @@ log.setLevel("INFO") if RANK == 0 else log.setLevel("CRITICAL")
 
 _CHECKPOINT_VERSION = None
 
+_CHECKPOINT_TASK_LIST = []
+_CHECKPOINT_NUM_TASKS = 0
 dlp = Profile("CHECKPOINT")
 def set_checkpoint_version(value):
     global _CHECKPOINT_VERSION
@@ -233,9 +235,11 @@ def get_rng_state():
         rng_state_list = [rng_state]
 
     return rng_state_list
+from multiprocessing import Process
+                
 
-@dlp.log
-def save_checkpoint(iteration, model, optimizer, opt_param_scheduler):
+@dlp.log                    
+def save_checkpoint_sync(iteration, model, optimizer, opt_param_scheduler):
     """Save a model checkpoint."""
     args = get_args()
     assert args is not None
@@ -338,6 +342,38 @@ def save_checkpoint(iteration, model, optimizer, opt_param_scheduler):
     # Wait so everyone is done (not necessary)
     if torch.distributed.is_initialized():
         torch.distributed.barrier()
+
+def wait_checkpoint():
+    print_rank_0("waiting for previous checkpointing to finish")
+    global _CHECKPOINT_TASK_LIST
+    for t in _CHECKPOINT_TASK_LIST:
+        t.join()
+    _CHECKPOINT_TASK_LIST = []
+        
+def save_checkpoint(iteration, model, optimizer, opt_param_scheduler):
+    '''
+    This is for performing async checkpoint
+    '''
+    args = get_args()
+    assert aargs is not None
+    num_checkpoint_workers = args.num_checkpoint_workers 
+    global _CHECKPOINT_TASK_LIST
+    global _CHECKPOINT_NUM_TASKS
+    if args.num_checkpoint_workers > 0:
+        print_rank_0("Async checkpointing")
+        if _CHECKPOINT_NUM_TASKS < num_checkpoint_workers:
+            proc = Process(target=save_checkpoint_sync, args=(iteration, model, optimizer, opt_param_scheduler))
+            proc.start()
+        else:
+            wait_checkpoint()
+            _CHECKPOINT_NUM_TASKS = 0
+            proc = Process(target=save_checkpoint_sync, args=(iteration, model, optimizer, opt_param_scheduler))
+            proc.start()
+        _CHECKPOINT_TASK_LIST.append(proc)
+        _CHECKPOINT_NUM_TASKS += 1
+    else:
+        save_checkpoint_sync(iteration, model, optimizer, opt_param_scheduler)
+
 
 @dlp.log
 def _transpose_first_dim(t, num_splits, num_splits_first, model):
