@@ -596,6 +596,8 @@ def main():
             )
         args = get_args()
         assert args is not None
+        if RANK == 0:
+            print(prof.key_averages().table())
         prof.export_chrome_trace(
             f"{args.trace_dir}/torch-trace-{RANK}-of-{WORLD_SIZE}.json"
         )
