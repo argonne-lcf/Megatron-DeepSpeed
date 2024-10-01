@@ -473,7 +473,7 @@ def forward_step(data_iterator, model):
 @ez.dist.timeitlogit(rank=RANK)
 def train_valid_test_datasets_provider(train_val_test_num_samples):
     """Build train, valid, and test datasets."""
-    t0 = time.perf_counter()
+    t0 = time.perf_counter_ns()
     args = get_args()
     assert args is not None
     # from ezpz.profile import get_context_manager
@@ -520,7 +520,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
                 files.append(path + f.split(".bin")[0])
     else:
         files = args.data_path
-
+    
     train_ds, valid_ds, test_ds = build_train_valid_test_datasets(
         data_prefix=files,
         data_impl=args.data_impl,
@@ -534,7 +534,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
         test_data_prefix=args.test_data_path,
         data_cache_path=args.data_cache_path,
     )
-    dt = time.perf_counter_ns() - t0
+    dt = (time.perf_counter_ns() - t0)/1e9
     log.info(f"> finished creating GPT datasets. Took: {dt:.5f}s")
     return train_ds, valid_ds, test_ds
 
