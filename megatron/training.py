@@ -1680,7 +1680,7 @@ def train(
             activities=[ProfilerActivity.CPU]
             if torch.cuda.is_available():
                 activities += [ProfilerActivity.CUDA]
-	    if torch.xpu.is_available():
+            if torch.xpu.is_available():
                 activities += [ProfilerActivity.XPU]                
             with profile(activities=activities) as prof:
                 loss_dict, skipped_iter, grad_norm, num_zeros_in_grad = train_step(
