@@ -579,12 +579,12 @@ def main():
     if os.getenv('TORCH_PROFILER_ENABLE') == '1':
         #  record_function
         from torch.profiler import profile, ProfilerActivity
-        try:
-            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA, ProfilerActivity.XPU]
-        except Exception as exc:
-            log.exception(exc)
-            log.warning("TORCH PROFILER WARNING: XPU is not supported")            
-            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]
+        activities=[ProfilerActivity.CPU]
+
+        if torch.cuda.is_available():
+            activities += [ProfilerActivity.CUDA]
+        if torch.xpu.is_available():
+            activities += [ProfilerActivity.XPU]
         with profile(activities=activities) as prof:
             model = pretrain(
                 train_valid_test_datasets_provider,
