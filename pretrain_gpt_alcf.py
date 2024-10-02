@@ -49,7 +49,8 @@ dt_setup = time.time() - t0_setup
 #     RANK = ez.get_rank()
 WORLD_SIZE = ez.get_world_size()
 LOCAL_RANK = ez.get_local_rank()
-DEVICE_TYPE = ez.dist.get_torch_device_type()
+DEVICE_TYPE = ez.dist.get_torch_device()
+#DEVICE_TYPE = ez.dist.get_torch_device_type()
 if torch.cuda.is_available():
     torch.cuda.set_device(LOCAL_RANK)
 
