@@ -1,118 +1,135 @@
 ## Latest News
-* [2023/07] Synced with [upstream](https://github.com/NVIDIA/Megatron-LM) over 1k commits, see [rebase folder for more details](https://github.com/microsoft/Megatron-DeepSpeed/tree/main/examples_deepspeed/rebase) in terms of features and updated performance.
+* [9/12/2024] Adjusted ALCF/helpers.sh setOutput to accept an input checkpoint. setOutput() sets $CKPT_DIR which is both the input and output dir.
+* [9/12/2024] Adjusted train_aGPT_7B.sh (and made a chia version) to take in the input for setOutput() and specify a d$DATA_FILE_LIST before calling setup, which makes the run_cmd - need to test with my own inputs
+* [9/12/2024] My prior venv environment broke. Sam helped me get the environment to get this running again. Note: Do not share your venv for this repo with other people.
+* [9/13/2024] Changed DEVICE=get_torch_device_type() to get_torch_device() in ALCF/training.sh and pretrain_gpt_alcf.py
+* [9/24/2024] Have steps 1, 2, & 3 working. Sam helping me struggle through Step 4 on Aurora (down tomorrow, also down long term after this month). When moving files and file list over, note that this take significant time. Note also that directories in the data_list.txt file (weighting file) need to be updated to where the data is on whatever system you moved to (sed is your friend). I have an env_info.sh file I use to load my environment on Aurora in an interactive node. Successfully running on two nodes, world size of 24, with a micro-batch size of 1 (set in helpers.sh).
+* [9/25/2024] Seem to have gotten training working, but it is not continuing from the checkpoint. Possible reasons are that the checkpoint is in the wrong format. There is an inspect_checkpoint.py and an adjust_checkpoint.py in the mds_checkpoint folder (for now, will think about where to move it later). Still getting some errors i.e., "[rank110]: RuntimeError: Error(s) in loading state_dict for VocabParallelEmbedding: [rank110]: 	size mismatch for weight: copying a param with shape torch.Size([32000, 2048]) from checkpoint, the shape in current model is torch.Size([32000, 4096])."
+* [9/27/2024] Added some changes to flags for training in helpers.sh, especially related to --no-load-optim, --no-load-rng, and getting rid of --use-checkpoint-opt_params_scheduler which seem to load checkpoints. I also added --fine-tune because Azton had it in his and it seems to work for him. We have the mystery of why my MDS wants a different directory structure for model weights than his does.
 
-## Megatron-DeepSpeed
-DeepSpeed version of NVIDIA's Megatron-LM that adds additional support for several features such as MoE model training, Curriculum Learning, 3D Parallelism, and others. The ```examples_deepspeed/``` folder includes example scripts about the features supported by DeepSpeed.
+## Key Scripts
 
-### Recent sync with NVIDIA/Megatron-LM
-In July 2023, we had a sync with the NVIDIA/Megatron-LM repo (where this repo is forked from) by git-merging 1100+ commits. Details can be found in the ```examples_deepspeed/rebase``` folder. Given the amount of merged commits, bugs can happen in the cases that we haven't tested, and your contribution (bug report, bug fix pull request) is highly welcomed. We also created a [backup branch](https://github.com/microsoft/Megatron-DeepSpeed/tree/before_rebase) which is the version before this sync. This backup branch is just for comparison tests and for temporary use when you need to debug the main branch. We do not plan to continue supporting the version before sync.
+| Order | Task                 | Scripts                     | Dependencies edited / Notes |
+| :---: | :---:                | :---:                       | :---: |
+| 1     | Data Tokenization    | tokenize repo               | [working] via preprocess_data.py found in dolma data directory on Polaris |
+| 2     | Data Weights File    | ALCF/utils/gen_file_list.py | [dependencies working] megatron/data/merge_datasets_split.py, megatron/data/merge_dataset_qsub.sh, ALCF/utils/get_meta_data.sh&py, ALCF/utils/gen_file_list.py |
+| 3     | HF to MDS Conversion | tools-AZTON repo            | [untested] Need to test on TinyLlama |
+| 4     | Continue Training    | train_llama_chia_qsub.sh    | [working] train_aGPT_7B_chia.sh, ALCF/helpers.sh, megatron/training.py, pretrain_aGPT_alcf.py |
 
-### Run on Azure and AzureML
-To try out DeepSpeed on Azure, this fork of Megatron offers easy-to-use recipes and bash scripts. We strongly recommend to start with AzureML recipe in the ```examples_deepspeed/azureml``` folder. If you have a custom infrastructure (e.g. HPC clusters) or Azure VM based environment, please refer to the bash scripts in the ```examples_deepspeed/azure``` folder. 
+## Current To-Do
 
-Below is Megatron-LM's original README. Note that examples mentioned below are from the original NVIDIA/Megatron-LM repo. All of them do NOT have DeepSpeed technologies integrations, and some of them may not work due to changes in this Megatron-DeepSpeed repo. Thus we recommend you to go to ```../examples_deepspeed/``` folder which includes examples that have DeepSpeed technologies integrated and are tested by DeepSpeed team.
-------
+1. Train on 100% SlimPajama and examine loss curve
+2. Mix in other data and examine loss curve
 
-Megatron ([1](https://arxiv.org/pdf/1909.08053.pdf), [2](https://arxiv.org/pdf/2104.04473.pdf), and [3](https://arxiv.org/pdf/2205.05198)) is a large, powerful transformer developed by the Applied Deep Learning Research team at NVIDIA. This repository is for ongoing research on training large transformer language models at scale. We developed efficient, model-parallel ([tensor](https://arxiv.org/pdf/1909.08053.pdf), [sequence](https://arxiv.org/pdf/2205.05198), and [pipeline](https://arxiv.org/pdf/2104.04473.pdf)), and multi-node pre-training of transformer based models such as [GPT](https://arxiv.org/abs/2005.14165), [BERT](https://arxiv.org/pdf/1810.04805.pdf), and [T5](https://arxiv.org/abs/1910.10683) using mixed precision.
+## Step 1
 
-Below are some of the projects where we have directly used Megatron:
-* [BERT and GPT Studies Using Megatron](https://arxiv.org/pdf/1909.08053.pdf)
-* [BioMegatron: Larger Biomedical Domain Language Model](https://www.aclweb.org/anthology/2020.emnlp-main.379.pdf)
-* [End-to-End Training of Neural Retrievers for Open-Domain Question Answering](https://arxiv.org/abs/2101.00408)
-* [Large Scale Multi-Actor Generative Dialog Modeling](https://www.aclweb.org/anthology/2020.acl-main.8.pdf)
-* [Local Knowledge Powered Conversational Agents](https://arxiv.org/abs/2010.10150)
-* [MEGATRON-CNTRL: Controllable Story Generation with External Knowledge Using Large-Scale Language Models](https://www.aclweb.org/anthology/2020.emnlp-main.226.pdf)
-* [RACE Reading Comprehension Dataset Leaderboard](http://www.qizhexie.com/data/RACE_leaderboard.html)
-* [Training Question Answering Models From Synthetic Data](https://www.aclweb.org/anthology/2020.emnlp-main.468.pdf)
-* [Few-shot Instruction Prompts for Pretrained Language Models to Detect Social Biases](https://arxiv.org/abs/2112.07868)
-* [Exploring the Limits of Domain-Adaptive Training for Detoxifying Large-Scale Language Models](https://arxiv.org/abs/2202.04173)
-* [Using DeepSpeed and Megatron to Train Megatron-Turing NLG 530B, A Large-Scale Generative Language Model](https://arxiv.org/abs/2201.11990)
-* [Multi-Stage Prompting for Knowledgeable Dialogue Generation](https://arxiv.org/abs/2203.08745)
+Go to tokenize repo and follow that. For the very last step of merging dataset into fewer files, go to Megatron-DeepSpeed-SAM/megatron/data directory and use merge_dataset_qsub.sh. You will need to specify all directories that contain files related to the particular group you are merging and how many samples to include per file. Note that for your prefixes you are going to have to include numbers after a '-'. This is the specific character that will be recognized by the code finding prefixes later.
 
-Megatron is also used in [NeMo Megatron](https://developer.nvidia.com/nvidia-nemo#nemo-megatron), a framework to help enterprises overcome the challenges of building and training sophisticated natural language processing models with billions and trillions of parameters.
+## Step 2
 
-Our codebase is capable of efficiently training very large (hundreds of billions of parameters) language models with both model and data parallelism. To demonstrate how the code scales with multiple GPUs and model sizes, we consider GPT models from 1 billion all the way to 1 trillion parameters. All models use a vocabulary size of 51,200 and a sequence length of 2048. We vary hidden size, number of attention heads, and number of layers to arrive at a specifc model size. As the model size increases, we also modestly increase the batch size. We leverage [NVIDIA's Selene supercomputer](https://www.top500.org/system/179842/) to perform scaling studies and use up to 3072 [A100](https://www.nvidia.com/en-us/data-center/a100/) GPUs for the largest model. Each cluster node has 8 NVIDIA 80GB A100 GPUs. The graph below shows that we scale nearly linear up to 1 trillion parameter models running on 3072 GPUs. Note that these results are from benchmark runs and these models were not trained to convergence; however, the FLOPs are measured for end-to-end training, i.e., includes all operations including data loading, optimization, and even logging.
+Now that you have your merged files of about 5GB each (after having identified the right number of samples) you are ready to go to this repo under ALCF/utils to run the get_meta_data.sh file which will give you a json. You will take that json and feed it into gen_file_list.py. Note that in order for this to work, you will have to go into the code and manually specify epochs appropriately.
 
-![Scaling Graph](images/Achieved_petaFLOPs.png)
+Helpful one liners if you mess up file prefixes and need to make it so that it will work with the code:
 
-The following table shows both model (MFU) and hardware (HFU) FLOPs utilization for select configurations up to 1T parameters (see [our paper](https://arxiv.org/pdf/2205.05198) for a description of how these are calculated). As the model size increases, we achieve better GPU utilization and for the one trillion parameter model, we reach a MFU and HFU of 56.3% and 57.0%, respectively. Note that these numbers are also measured on benchmark runs and in this case are measured using a data parallel size of one. Data parallelism introduces some overhead due to the gradient all-reduce required between the data parallel groups. However, for large transformer models, this overhead is not large and can almost entirely eliminted by overlapping the gradient all-reduce with backpropagation.
+Changing a _ into a -. This only works well if you only have one _ in your prefix name:
 
-| Model Size | Model FLOPs Utilization | Hardware FLOPs Utilization |
-| :---: | :---: | :---: |
-| 22B   | 41.5% | 43.7% |
-| 175B  | 51.4% | 52.8% |
-| 530B  | 56.0% | 57.0% |
-| 1T    | 56.3% | 57.0% |
+```
+rename '_' '-' -- *_*
+```
 
-# Contents
-   * [Contents](#contents)
-   * [Setup](#setup)
-      * [Downloading Checkpoints](#downloading-checkpoints)
-   * [Usage](#usage)
-   * [Training](#training)
-      * [Data Preprocessing](#data-preprocessing)
-      * [BERT Pretraining](#bert-pretraining)
-      * [GPT Pretraining](#gpt-pretraining)
-      * [T5 Pretraining](#t5-pretraining)
-      * [Distributed Pretraining](#distributed-pretraining)
-      * [Activation Checkpointing and Recomputation](#activation-checkpointing-and-recomputation)
-      * [Distributed Optimizer](#distributed-optimizer)
-      * [FlashAttention](#flashattention)
-      * [GPT-3 Example](#gpt-3-example)
-      * [Retro](#retro)
-   * [Evaluation and Tasks](#evaluation-and-tasks)
-      * [GPT Text Generation](#gpt-text-generation)
-      * [GPT Evaluation](#gpt-evaluation)
-         * [WikiText Perplexity Evaluation](#wikitext-perplexity-evaluation)
-         * [LAMBADA Cloze Accuracy](#lambada-cloze-accuracy)
-      * [BERT Task Evaluation](#bert-task-evaluation)
-         * [RACE Evaluation](#race-evaluation)
-         * [MNLI Evaluation](#mnli-evaluation)
-   * [Datasets](#datasets)
-      * [Collecting Wikipedia Training Data](#collecting-wikipedia-training-data)
-      * [Collecting GPT Webtext Data](#collecting-gpt-webtext-data)
-   * [Reproducibility](#reproducibility)
+Changing the final extension from .bin.idx to .idx, in case you messed up somewhere in coding file names:
+
+```
+rename .bin.idx .idx *.bin.idx
+```
+
+## Step 3
+
+This step can actually happen at any time before Step 4. Follow instructions in tools-AZTON repo.
+
+## Step 4
+
+You are back in this repo and this time you are running something like train_llama_chia_qsub.sh. Main trick is getting environment set up. Some notes for Sunspot.
+
+Get your keys right and add the following to ~/.ssh/config:
+
+```
+Host github.com
+     User git
+     hostname ssh.github.com
+
+Host github.com 
+     Port 443
+     ProxyCommand /usr/bin/socat - PROXY:proxy.alcf.anl.gov:%h:%p,proxyport=3128
+```
+
+Then you can start the install of things:
+
+```
+export HTTP_PROXY=http://proxy.alcf.anl.gov:3128
+export HTTPS_PROXY=http://proxy.alcf.anl.gov:3128
+export http_proxy=http://proxy.alcf.anl.gov:3128
+export https_proxy=http://proxy.alcf.anl.gov:3128
+git config --global http.proxy http://proxy.alcf.anl.gov:3128
+
+module use /soft/modulefiles
+module load frameworks/2024.2.1_u1
+module load mpich
+
+#Navigate to project directory
+cd [project-dir="/eagle/argonne_tpc_CNDA"]
+git clone git@github.com:BriarRose-ANL/Megatron-DeepSpeed-SAM.git
+
+cd Megatron-DeepSpeed-SAM
+git clone https://github.com/saforem2/ezpz deps/ezpz
+export PBS_O_WORKDIR=$(pwd) && source deps/ezpz/src/ezpz/bin/utils.sh && ezpz_setup_python && ezpz_setup_job
+export PYTHONUSERBASE="/home/chian/candle_aesp_chia/Megatron-DeepSpeed-SAM/venvs/aurora_nre_models_frameworks-2024.2.1_u1"
+python3 -m pip install -e deps/ezpz --require-virtualenv
+```
 
 # Setup
-We strongly recommend using the latest release of [NGC's PyTorch container](https://ngc.nvidia.com/catalog/containers/nvidia:pytorch) with DGX nodes. If you can't use this for some reason, use the latest pytorch, cuda, nccl, and NVIDIA [APEX](https://github.com/NVIDIA/apex#quick-start) releases.  Data preprocessing requires [NLTK](https://www.nltk.org/install.html), though this is not required for training, evaluation, or downstream tasks.
+Sam tip for mpi4py build issue:
 
-You can launch an instance of the PyTorch container and mount Megatron, your dataset, and checkpoints with the following Docker commands:
 ```
-docker pull nvcr.io/nvidia/pytorch:xx.xx-py3
-docker run --gpus all -it --rm -v /path/to/megatron:/workspace/megatron -v /path/to/dataset:/workspace/dataset -v /path/to/checkpoints:/workspace/checkpoints nvcr.io/nvidia/pytorch:xx.xx-py3
+mv /lus/eagle/projects/argonne_tpc/chia-llama2/venvs /lus/eagle/projects/argonne_tpc/chia-llama2/venvs.bak
+git clone https://github.com/saforem2/ezpz deps/ezpz
+export PBS_O_WORKDIR=$(pwd) && source deps/ezpz/src/ezpz/bin/utils.sh && ezpz_setup_python && ezpz_setup_job
+which python
+python3 -c 'import mpi4py'
+```
+then summary of https://gist.github.com/saforem2/2f2549894d9c65ed2edcfe6b1dbe6a70
+
+```
+# clone repo + navigate into it
+git clone git@github.com:BriarRose-ANL/Megatron-DeepSpeed-SAM.git
+cd Megatron-DeepSpeed-SAM
+#put in from above
+python3 -m pip install -e deps/ezpz --require-virtualenv
+# deepspeed
+git clone https://github.com/microsoft/DeepSpeed deps/DeepSpeed
+cd deps/DeepSpeed && bash install.sh |& tee install.log && cd -
+# upgrade W&B
+python3 -m pip install --upgrade wandb
+# launch:
+PBS_O_WORKDIR=$(pwd) bash train_llama_chia_qsub.sh
 ```
 
-## Downloading Checkpoints
-We have provided pretrained [BERT-345M](https://ngc.nvidia.com/catalog/models/nvidia:megatron_bert_345m) and [GPT-345M](https://ngc.nvidia.com/catalog/models/nvidia:megatron_lm_345m) checkpoints for use to evaluate or finetuning downstream tasks. To access these checkpoints, first [sign up](https://ngc.nvidia.com/signup) for and [setup](https://ngc.nvidia.com/setup/installers/cli) the NVIDIA GPU Cloud (NGC) Registry CLI. Further documentation for downloading models can be found in the [NGC documentation](https://docs.nvidia.com/dgx/ngc-registry-cli-user-guide/index.html#topic_6_4_1).
+things being tried on Sunspot when you can't install DeepSpeed because XGBoost is missing:
 
-Alternatively, you can directly download the checkpoints using:
+```
+python3 -m pip install xgboost "numpy<2"
+python3 -m pip install -e deps/DeepSpeed
+python3 -m pip install deepspeed
+```
 
-<pre>
-BERT-345M-uncased: wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/megatron_bert_345m/versions/v0.1_uncased/zip -O megatron_bert_345m_v0.1_uncased.zip
-BERT-345M-cased: wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/megatron_bert_345m/versions/v0.1_cased/zip -O megatron_bert_345m_v0.1_cased.zip
-GPT-345M: wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/megatron_lm_345m/versions/v0.0/zip -O megatron_lm_345m_v0.0.zip
-</pre>
-
-The models require vocabulary files to run. The BERT  WordPiece vocab file can be extracted from Google's pretrained BERT models: [uncased](https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-vocab.txt), [cased](https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-cased-vocab.txt). The GPT [vocab file](https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-vocab.json) and [merge table](https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-merges.txt) can be downloaded directly.
-
-Additional notes for DeepSpeed. We have added a helper script to download the checkpoints and make the example runnable.
-
-Steps to follow:
- - bash dataset/download_ckpt.sh -- this will download and extract the checkpoint
- - bash dataset/download_vocab.sh -- this will download GPT merges and vocab files.
- - bash examples/generate_text.sh -- this will generate examples using the 345m GPT model.
 
 # Usage
 
-After installation, there are several possible workflows. The most comprehensive is:
-1. Data preprocessing
-2. Pretraining
-3. Finetuning (Optional for zero-shot tasks)
-4. Downstream task evaluation or text generation
+Some of the below is guessed out.
 
-However, steps 1 and 2 can be replaced by using one of the pretrained models mentioned above.
+Step 1: Data Tokenization: There is reference to a preprocess_data.py script in /gila/Aurora_deployment in Sunspot. This is the script we would need. I found something named the same in /lus/eagle/projects/datasets/dolma/utils. Given what I know about the dolma folder being a seemingly older version of what Huihao has (my guess), this might also be about of data, but I'm going to try it.
 
-We've provided several scripts for pretraining both BERT and GPT in [`examples`](./examples) directory, as well as scripts for both zero-shot and fine-tuned downstream tasks including MNLI, RACE, WikiText103, and LAMBADA evaluation. There is also a script for GPT interactive text generation.
+Step 2: Data Weights File: Tried to match up Huihao's script with something existing in /lus/eagle/projects/datasets/dolma, but the gen_file_list.py script there is much shorter than Huihao's script, so failing to file a similar workspace on Polaris that is as up-to-date as Huihao's version.
 
 # Training
 ## Data Preprocessing
