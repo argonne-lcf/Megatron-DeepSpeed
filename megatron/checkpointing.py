@@ -239,7 +239,9 @@ def save_checkpoint(iteration, model, optimizer, opt_param_scheduler):
     """Save a model checkpoint."""
     args = get_args()
     assert args is not None
-    iteration = args.iteration
+    args_iter = args.iteration
+    if args_iter != iteration:
+        log.warning(f"{args.iteration=} != {iteration} passed to 'save_checkpoint'")
 
     save_lr_state_dict()
 
