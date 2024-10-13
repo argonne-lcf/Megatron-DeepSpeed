@@ -380,10 +380,10 @@ class CoreAttention(MegatronModule):
         context_layer = context_layer.permute(2, 0, 1, 3).contiguous()
 
         # [sq, b, np, hn] --> [sq, b, hp]
-        new_context_layer_shape = context_layer.size()[:-2] + (
-            self.hidden_size_per_partition,
-        )
-        context_layer = context_layer.view(*new_context_layer_shape)
+        # new_context_layer_shape = context_layer.size()[:-2] + (
+        #     self.hidden_size_per_partition,
+        # )
+        # context_layer = context_layer.view(*new_context_layer_shape)
 
         return context_layer
 
@@ -987,7 +987,7 @@ class ParallelAttention(MegatronModule):
                     ).contiguous()
             else:
                 context_layer = self.dist_attn(
-                    query_layer, key_layer, value_layer, attention_mask
+                    query_layer, key_layer, value_layer, batch_dim_idx=batch_dim_idx, attention_mask=attention_mask
                 )
         else:
             if self.use_flash_attn:
@@ -1024,7 +1024,8 @@ class ParallelAttention(MegatronModule):
         # =================
         # Output. [sq, b, h]
         # =================
-
+        if not self.use_flash_attn: ## for deepspeed>=14.5
+            context_layer = context_layer.flatten(start_dim=-2) ## [s, b, hc, hd] -> [s, b, h]
         output, bias = self.dense(context_layer)
 
         return output, bias

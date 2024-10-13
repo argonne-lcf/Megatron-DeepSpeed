@@ -3,8 +3,12 @@
 # AWS NCCL OFI Plugin settings below
 export NCCL_CROSS_NIC=1
 export NCCL_COLLNET_ENABLE=1
-export NCCL_NET="AWS Libfabric"
-export LD_LIBRARY_PATH=/soft/libraries/aws-ofi-nccl/v1.9.1-aws/lib:$LD_LIBRARY_PATH
+if [ -n "$SOPHIA" ]; then
+    NCCL_SOCKET_IFNAME=bond0
+else
+    export NCCL_NET="AWS Libfabric"
+    export LD_LIBRARY_PATH=/soft/libraries/aws-ofi-nccl/v1.9.1-aws/lib:$LD_LIBRARY_PATH
+fi
 export LD_LIBRARY_PATH=/soft/libraries/hwloc/lib/:$LD_LIBRARY_PATH
 export FI_CXI_DISABLE_HOST_REGISTER=1
 export FI_MR_CACHE_MONITOR=userfaultfd

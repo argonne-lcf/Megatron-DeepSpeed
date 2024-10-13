@@ -365,7 +365,14 @@ setupLauncher() {
         make_ds_hostfile || exit
         export LAUNCHER="deepspeed --hostfile $hfds --launcher MPICH ${EXEC}"
     else
-        if [[ -n "${DIST_LAUNCH}" ]]; then
+        if [ -n "$SOPHIA" ]; then
+            # LAUNCHER="${DIST_LAUNCH} --pmi=pmix --genvall $(which python3) -Wignore ${EXEC}"
+            # dist_launch_cmd="mpiexec --verbose --envall -n ${num_gpus} -ppn ${num_gpus_per_host} --hostfile ${hostfile} --cpu-bind depth -d ${depth}"
+            LAUNCHER="mpiexec --verbose $(env | grep -v -e '"' -e ';' -e '*' -e '-' -e '__' -e '}' -e '|' -e ')' -e esac -e else -e fi| awk -F= '{print "-x", $1}' | tr '\n' ' ') \
+                        -n ${num_gpus} --hostfile ${hostfile} $(which python3) -Wignore ${EXEC}"
+            echo "${LAUNCHER}"
+            export LAUNCHER="${LAUNCHER}"
+        elif [[ -n "${DIST_LAUNCH}" ]]; then
             mn=$(get_machine_name)
             if [[ "${mn}" == "aurora" || "${mn}" == "sunspot" ]]; then
                 LAUNCHER="${DIST_LAUNCH} --pmi=pmix --genvall $(which python3) -Wignore ${EXEC}"
@@ -561,7 +568,7 @@ setParams() {
         ######################################################################
     # +--------[Polaris]-----------------------------------+
     # elif [[ $(hostname) == x3* ]]; then
-    elif [[ "${mn}" == "polaris" || "${mn}" == "sirius" ]]; then
+    elif [[ "${mn}" == "polaris" || "${mn}" == "sirius" || -n "$SOPHIA" ]]; then
         # export LAUNCH_CMD="${LAUNCH_CMD:-deepspeed}"
         TP=${TP:-1}               # TP = 2
         export NCCL=${NCCL:-nccl} # NCCL
@@ -594,7 +601,7 @@ setParams() {
         fi
     fi
     # +----------------------------------------------------------------------+
-    export TP="${TP}"
+    export TP="${TP:-1}"
     export PP="${PP:-1}"
     export SP="${SP:-1}"
     export FLASH_ARG="${FLASH_ARG}"
