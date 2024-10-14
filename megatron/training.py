@@ -29,6 +29,7 @@ from megatron.core import mpu, tensor_parallel
 # from megatron import print_rank_last
 from megatron.checkpointing import load_checkpoint
 from megatron.checkpointing import save_checkpoint
+from megatron.checkpointing import wait_checkpoint
 from megatron.model import Float16Module
 from megatron.model import GPTModel
 from megatron.core.enums import ModelType
@@ -332,6 +333,7 @@ def pretrain(
     else:
         log.info("skipping training (--skip-train is on) ...")
         iteration = args.iteration
+
     config = core_transformer_config_from_args(args)
     if args.do_valid:
         prefix = f"iteration {iteration} on {args.eval_iters * args.global_batch_size}-sample draw from validation set"
@@ -360,6 +362,7 @@ def pretrain(
             write_to_tensorboard=not args.skip_train,
             test=True,
         )
+    wait_checkpoint()
     return model
 
 
@@ -1821,6 +1824,7 @@ def train(
                     iteration, model, optimizer, opt_param_scheduler
                 )
                 print_datetime("exiting program after receiving SIGTERM.")
+                wait_checkpoint()
                 sys.exit()
         if args.save and args.save_interval and iteration % args.save_interval == 0:
             save_checkpoint_and_time(iteration, model, optimizer, opt_param_scheduler)
@@ -1839,6 +1843,7 @@ def train(
                         iteration, model, optimizer, opt_param_scheduler
                     )
                 print_datetime("exiting program after {} minutes".format(train_time))
+                wait_checkpoint()
                 sys.exit()
         # Exiting based on iterations
         if args.exit_interval and iteration % args.exit_interval == 0:
@@ -1846,6 +1851,7 @@ def train(
                 save_checkpoint_and_time(
                     iteration, model, optimizer, opt_param_scheduler
                 )
+            wait_checkpoint()
             torch.distributed.barrier()
             print_datetime("exiting program at iteration {}".format(iteration))
             sys.exit()
