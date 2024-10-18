@@ -16,7 +16,8 @@ from megatron.core.parallel_state import (
 
 from megatron.core import ModelParallelConfig
 from deepspeed.accelerator import get_accelerator
-
+from megatron.utils import Profile
+dlp = Profile("PIPELINE")
 # Types
 Shape = Union[List[int], torch.Size]
 
@@ -329,6 +330,7 @@ def _communicate(*, tensor_send_next: Optional[torch.Tensor],
     return tensor_recv_prev, tensor_recv_next, reqs
 
 
+@dlp.log
 def recv_forward(tensor_shape: Shape,
                  config: ModelParallelConfig) -> torch.Tensor:
     """ Receive tensor from previous rank in pipeline (forward receive).
@@ -353,7 +355,7 @@ def recv_forward(tensor_shape: Shape,
             config.timers('forward-recv').stop()
     return input_tensor
 
-
+@dlp.log
 def recv_backward(tensor_shape: Shape,
                   config: ModelParallelConfig) -> torch.Tensor:
     """Receive tensor from next rank in pipeline (backward receive).
@@ -376,7 +378,7 @@ def recv_backward(tensor_shape: Shape,
             config.timers('backward-recv').stop()
     return output_tensor_grad
 
-
+@dlp.log
 def send_forward(output_tensor: torch.Tensor,
                  config: ModelParallelConfig) -> None:
     """Send tensor to next rank in pipeline (forward send).
@@ -397,7 +399,7 @@ def send_forward(output_tensor: torch.Tensor,
         if config.timers is not None:
             config.timers('forward-send').stop()
 
-
+@dlp.log
 def send_backward(input_tensor_grad: torch.Tensor,
                   config: ModelParallelConfig) -> None:
     """Send tensor to previous rank in pipeline (backward send).
@@ -417,7 +419,7 @@ def send_backward(input_tensor_grad: torch.Tensor,
         if config.timers is not None:
             config.timers('backward-send').stop()
 
-
+@dlp.log
 def send_forward_recv_backward(output_tensor: torch.Tensor,
                                tensor_shape: Shape,
                                config: ModelParallelConfig) -> torch.Tensor:
@@ -441,7 +443,7 @@ def send_forward_recv_backward(output_tensor: torch.Tensor,
             config.timers('forward-send-backward-recv').stop()
     return output_tensor_grad
 
-
+@dlp.log
 def send_backward_recv_forward(input_tensor_grad: torch.Tensor,
                                tensor_shape: Shape,
                                config: ModelParallelConfig) -> torch.Tensor:
@@ -465,7 +467,7 @@ def send_backward_recv_forward(input_tensor_grad: torch.Tensor,
             config.timers('backward-send-forward-recv').stop()
     return input_tensor
 
-
+@dlp.log
 def send_forward_recv_forward(output_tensor: torch.Tensor,
                               recv_prev: bool,
                               tensor_shape: Shape,
@@ -491,7 +493,7 @@ def send_forward_recv_forward(output_tensor: torch.Tensor,
         return input_tensor, wait_handles
     return input_tensor
 
-
+@dlp.log
 def send_backward_recv_backward(input_tensor_grad: torch.Tensor,
                                 recv_next: bool,
                                 tensor_shape: Shape,
@@ -517,7 +519,7 @@ def send_backward_recv_backward(input_tensor_grad: torch.Tensor,
         return output_tensor_grad, wait_handles
     return output_tensor_grad
 
-
+@dlp.log
 def send_forward_backward_recv_forward_backward(
         output_tensor: torch.Tensor,
         input_tensor_grad: torch.Tensor,

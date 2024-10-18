@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import time
+import json
 start_time = time.time()
 from mpi4py import MPI
 import os
@@ -37,7 +38,7 @@ dlp = Profile("TEST_BLENDABLEDATASET")
 
 os.makedirs(args.trace_dir, exist_ok=True)
 
-
+corpus_all = []
 data_file_list = args.data_file_list
 print_rank_0(f"Reading data from {args.data_file_list}")
 files = []
@@ -51,6 +52,9 @@ with open(data_file_list, 'r') as fin:
         files.append(float(w))
         files.append(fname)
         files.append(c)
+        if c not in corpus_all:
+            corpus_all.append(c)
+            
 splits_string="100,0,0"
 
 weights = np.array(weights)
@@ -82,6 +86,40 @@ print_rank_0(f"Finished building the blendable dataset in {end_build_dataset - s
 print_rank_0(f"Total number of samples: {len(train_ds)}")
 print_rank_0(f"Weights set: {weights[:min(8, num_datasets)]}")
 
+
+def get_sample_info(blendable_dataset, idx):
+    # corpus dataset
+    cd = blendable_dataset.dataset_index[idx]
+    # index within the corpus dataset
+    cds = blendable_dataset.dataset_sample_index[idx]
+    # dataset index within each corpus
+    fcd = blendable_dataset.datasets[cd].dataset_index[cds]
+    # sample index within the dataset
+    fcds = blendable_dataset.datasets[cd].dataset_sample_index[cds]
+    # corresponding data file
+    prefix = blendable_dataset.datasets[cd].dataset_builders[fcd].prefix
+    corpus = blendable_dataset.datasets[cd].dataset_builders[fcd].corpus
+    #v = blendable_dataset[idx]['text']
+    #norm = np.linalg.norm(v)
+    return prefix, corpus, fcds
+
+num_batches =  args.train_iters
+print(f"global_batch_size: {args.global_batch_size}")
+print(f"number of batches: {num_batches}")
+    
+fout = open("samples_list.jsonl", "w")
+if comm.rank == 0:
+    for i in range(num_batches):
+        ns_corpus = {}
+        for c in corpus_all:
+            ns_corpus[c] = 0
+        for j in range(args.global_batch_size):
+            prefix, corpus, idx = get_sample_info(train_ds, i*args.global_batch_size+j)
+            ns_corpus[corpus] +=1
+            fout.write(f"\u007b 'batch': {i}, 'sample': {j}, 'corpus': '{corpus}', 'prefix': '{prefix}', 'dataset_sample_index': {idx} \u007d\n")
+        fout.write(f"\u007b 'batch': {i}, 'histogram': {ns_corpus} \u007d \n")
+comm.Barrier()        
+exit()
 start_build_dataloader = time.time()
 print_rank_0(f"Starting to build the data loader")
 rank_in_parallel_group = mpu.get_sequence_parallel_rank()

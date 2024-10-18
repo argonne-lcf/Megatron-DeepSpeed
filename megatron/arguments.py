@@ -1291,6 +1291,8 @@ def _add_data_args(parser):
     group.add_argument('--data-file-list', type=str, default=None,
                        help='The file with the list of dataset and weights')
     
+    group.add_argument('--shuffle-sample', action='store_true', help="Whether to shuffle the samples within in the dataset files")
+
     group.add_argument('--split', type=str, default='969, 30, 1',
                        help='Comma-separated list of proportions for training,'
                        ' validation, and test split. For example the split '
