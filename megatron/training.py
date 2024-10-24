@@ -26,6 +26,7 @@ import torch
 import torch.distributed as tdist
 from torch.nn.parallel.distributed import DistributedDataParallel as torchDDP
 
+import wandb
 from megatron import (
     get_args,
     get_current_global_batch_size,
@@ -316,7 +317,7 @@ def pretrain(
     config = core_transformer_config_from_args(args)
     if args.do_valid:
         prefix = f"iteration {iteration} on {args.eval_iters * args.global_batch_size}-sample draw from validation set"
-        evaluate_and_print_results(
+        _ = evaluate_and_print_results(
             prefix,
             forward_step_func,
             valid_data_iterator,
@@ -329,7 +330,7 @@ def pretrain(
         )
     if args.do_test:
         prefix = f"iteration {iteration} on {args.eval_iters * args.global_batch_size}-sample draw from test set"
-        evaluate_and_print_results(
+        _ = evaluate_and_print_results(
             prefix,
             forward_step_func,
             test_data_iterator,
@@ -924,7 +925,6 @@ def train_step(
         # Empty unused memory.
         if args.empty_unused_memory_level >= 2 and accelerator is not None:
             accelerator.empty_cache()
-
         # XXX: [saforem2]: ----------------------------------------------------
         # Is `num_zeros_in_grad` worth calculating (/ implementing) ??
         # the `Megatron`-specific implementation is at:
@@ -1406,6 +1406,16 @@ def evaluate_and_print_results(
         config,
         verbose,
     )
+    key = "test" if test else "val"
+    if wandb is not None and wandb.run is not None:
+        wandb.log({
+            f"{key}/iteration": iteration,
+            **{f"{key}/{k}": v for k, v in total_loss_dict.items()},
+            **{
+                f"{key}/ppl_{k}": math.exp(min(20, v.item()))
+                for k, v in total_loss_dict.items()
+            },
+        })
     string = " validation loss at {} | ".format(prefix)
     for key in total_loss_dict:
         string += f"{key} value={total_loss_dict[key].item():.6f}"
@@ -1451,6 +1461,7 @@ def evaluate_and_print_results(
     log.info("-" * length)
     log.info(string)
     log.info("-" * length)
+    return total_loss_dict
 
 
 def cyclic_iter(iter):

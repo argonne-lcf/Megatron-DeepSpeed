@@ -1,31 +1,16 @@
-# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company.
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
 """General utilities."""
 
 import sys
 import os
-import time
 import logging
 from typing import Optional
 
-# from ezpz.dist import get_rank
 import torch
 from torch.nn.parallel import DistributedDataParallel as torchDDP
 
 from deepspeed.accelerator import get_accelerator
-
-ACCELERATOR = get_accelerator()
-assert ACCELERATOR is not None
-
-if ACCELERATOR.device_name() == "cuda":
-    try:
-        from apex.multi_tensor_apply import multi_tensor_applier  # type: ignore
-        import amp_C  # type:ignore
-
-        HAS_APEX = True
-    except Exception:
-        HAS_APEX = False
 
 from megatron import get_args, get_adlr_autoresume, get_num_microbatches
 from megatron.core import mpu
@@ -35,42 +20,84 @@ from megatron.model.rotary_pos_embedding import RotaryEmbedding
 
 import ezpz as ez
 
+ACCELERATOR = get_accelerator()
+assert ACCELERATOR is not None
+
+if ACCELERATOR.device_name() == "cuda":
+    try:
+        from apex.multi_tensor_apply import multi_tensor_applier  # type:ignore
+        import amp_C  # type:ignore
+
+        HAS_APEX = True
+    except Exception:
+        HAS_APEX = False
+
 RANK = ez.get_rank()
 log = logging.getLogger(__name__)
-# log.setLevel("INFO") if RANK == 0 else log.setLevel("CRITICAL")
-
+log.setLevel(os.environ.get("LOG_LEVEL", ("INFO" if RANK == 0 else "CRITICAL")))
 
 _DLIO_PROFILER_EXIST = True
+_DFTRACER_EXIST = True
+
 try:
-    import dlio_profiler  # type: ignore
+    import dftracer  # type:ignore
+except Exception:
+    _DFTRACER_EXIST = False
+
+try:
+    import dlio_profiler  # type:ignore
 except Exception:
     _DLIO_PROFILER_EXIST = False
 
-if _DLIO_PROFILER_EXIST:
+
+if _DFTRACER_EXIST:
+    from dftracer.logger import (  # type:ignore
+        dftracer as PerfTrace,
+        dft_fn as Profile,
+        DFTRACER_ENABLE as DFTRACER_ENABLE,
+    )
+elif _DLIO_PROFILER_EXIST:
     from dlio_profiler.logger import fn_interceptor as Profile  # type:ignore
     from dlio_profiler.logger import dlio_logger as PerfTrace  # type:ignore
 else:
     from functools import wraps
 
-    class Profile:
-        def __init__(self, type="PROFILER"):
-            self._start = time.perf_counter()
-            self.type = type
+    class Profile(object):
+        def __init__(
+            self, cat, name=None, epoch=None, step=None, image_idx=None, image_size=None
+        ):
+            return
 
         def log(self, func):
             return func
 
-        def iter(self, a):
-            return a
+        def log_init(self, func):
+            return func
+
+        def iter(self, func, iter_name="step"):
+            return func
 
         def __enter__(self):
-            self._start = time.perf_counter()
+            return
 
-        def __exit__(self, *args, **kwargs):
-            dt = time.perf_counter() - self._start
-            log.info(f"{self.type} took: {dt:.6f}s")
+        def __exit__(self, type, value, traceback):
+            return
 
-    class dlio_logger:
+        def update(
+            self, epoch=None, step=None, image_idx=None, image_size=None, args={}
+        ):
+            return
+
+        def flush(self):
+            return
+
+        def reset(self):
+            return
+
+        def log_static(self, func):
+            return
+
+    class dftracer(object):
         def __init__(
             self,
         ):
@@ -79,16 +106,29 @@ else:
         def initialize_log(self, logfile=None, data_dir=None, process_id=-1):
             return
 
-        def iter(self, a):
-            return a
+        def get_time(self):
+            return
 
-    PerfTrace = dlio_logger()
+        def enter_event(self):
+            return
+
+        def exit_event(self):
+            return
+
+        def log_event(self, name, cat, start_time, duration, string_args=None):
+            return
+
+        def finalize(self):
+            return
+
+    PerfTrace = dftracer()
+    DFTRACER_ENABLE = False
 
 
 def get_logger(
     name: str,
-    level: str = "INFO",
-    rank_zero_only: Optional[bool] = None,
+    level: Optional[str] = None,
+    rank_zero_only: Optional[bool] = True,
 ) -> logging.Logger:
     """Returns a `logging.Logger` object.
 
@@ -96,7 +136,9 @@ def get_logger(
     non-zero ranks (and will be set to `level` on RANK==0).
     """
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger.setLevel(
+        str(level if level is not None else os.environ.get("LOG_LEVEL", "INFO")).upper()
+    )
     if rank_zero_only and ez.get_rank() != 0:
         logger.setLevel("CRITICAL")
     return logger
@@ -428,6 +470,7 @@ def throughput_calculator(model, args, iteration_time, total_iterations):
     num_layers = args.num_layers
     vocab_size = args.padded_vocab_size
     gqa = args.num_attention_heads // args.num_key_value_heads
+    num_experts_routed_to = args.topk
     ffn_multiplier = 3 if args.swiglu else 2
     macs_per_flops = 2
 
@@ -436,7 +479,7 @@ def throughput_calculator(model, args, iteration_time, total_iterations):
     # correction has been made to TFLOPs formula due to incorrect behavior
     # observed with selective recompute when GQA not used and for all with GQA
     seq_len = args.seq_length
-    if hasattr(args, "actual_seq_length"):
+    if hasattr(args, 'actual_seq_length'):
         seq_len = args.actual_seq_length
     pre_and_post_mha_gemm_macs = (
         batch_size * num_layers * (1 + (2 // gqa) + 1) * (hidden_size**2) * seq_len
@@ -451,6 +494,7 @@ def throughput_calculator(model, args, iteration_time, total_iterations):
         * ffn_hidden_size
         * hidden_size
         * seq_len
+        * num_experts_routed_to
     )
     logit_lmhead_gemm_macs = batch_size * vocab_size * hidden_size * seq_len
 

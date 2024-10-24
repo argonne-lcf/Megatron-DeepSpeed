@@ -1,6 +1,7 @@
 # Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
 
 """Pretrain GPT"""
+
 import time
 from typing import Callable
 from mpi4py import MPI
@@ -103,7 +104,7 @@ def model_provider(pre_process=True, post_process=True):
     with deepspeed_zero_init(
         data_parallel_group=dpg,
         remote_device=(None if args.remote_device == "none" else args.remote_device),
-        config_dict_or_path=args.deepspeed_config_dict,
+        config_dict_or_path=args.deepspeed_config,  # _dict,
         enabled=args.zero_stage == 3,
         mpu=mpu,
     ):
