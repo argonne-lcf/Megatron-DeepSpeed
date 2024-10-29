@@ -107,17 +107,27 @@ num_batches =  args.train_iters
 print(f"global_batch_size: {args.global_batch_size}")
 print(f"number of batches: {num_batches}")
     
-fout = open("samples_list.jsonl", "w")
 if comm.rank == 0:
-    for i in range(num_batches):
+    fout = {}
+    chunks = 100
+    nbatches_per_chunks = num_batches//chunks
+    if num_batches%chunks > 0:
+        nbatches_per_chunks += 1
+    for i in range(74, chunks):
+        fout[i//nbatches_per_chunks] = open(f"samples_list_{i}-of-{chunks}.json", "w")
+    start_batch = 74*nbatches_per_chunks
+    for i in range(start_batch, num_batches):
         ns_corpus = {}
         for c in corpus_all:
             ns_corpus[c] = 0
         for j in range(args.global_batch_size):
             prefix, corpus, idx = get_sample_info(train_ds, i*args.global_batch_size+j)
             ns_corpus[corpus] +=1
-            fout.write(f"\u007b 'batch': {i}, 'sample': {j}, 'corpus': '{corpus}', 'prefix': '{prefix}', 'dataset_sample_index': {idx} \u007d\n")
-        fout.write(f"\u007b 'batch': {i}, 'histogram': {ns_corpus} \u007d \n")
+            fout[i//nbatches_per_chunks].write(f"\u007b 'batch': {i}, 'sample': {j}, 'corpus': '{corpus}', 'prefix': '{prefix}', 'dataset_sample_index': {idx} \u007d\n")
+        fout[i//nbatches_per_chunks].write(f"\u007b 'batch': {i}, 'histogram': {ns_corpus} \u007d \n")
+    for i in range(74, chunks):
+        fout[i//nbatches_per_chunks].close()
+
 comm.Barrier()        
 exit()
 start_build_dataloader = time.time()

@@ -175,7 +175,18 @@ def build_train_valid_test_datasets(
                         "{:.2f} (sec)".format(time.time() - start_time)
                     )
                     return dataset_index, dataset_sample_index
-                
+                def _cache_indices():
+                    self.desc += dataset_builders[0].corpus + "\n\n"
+                    self.desc += f"{dataset_builders[0].seed}\n\n"
+                    self.desc += f"{self.num_samples}\n\n"
+                    data_cache_path = dataset_builders[0].data_cache_path
+                    if data_cache_path:
+                        desc_hash = hashlib.md5(desc.encode('utf-8')).hexdigest()
+                        desc_path = os.path.join(data_cache_path, desc_hash + ".dsc")
+                        index_path = os.path.join(data_cache_path, desc_hash + "_index.npy")
+                        sample_index_path = os.path.join(data_cache_path, desc_hash + "_sample_index.npy")
+                        cache_hit = os.path.isfile(index_path) and os.path.isfile(sample_index_path)
+                        cache_success = True
                 if args.blend_sample_in_corpus:
                     self.dataset_index, self.dataset_sample_index = _build_indices_blended()                    
                 else:
