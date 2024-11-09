@@ -565,7 +565,7 @@ def main():
             log.exception(exc)
             log.warning("TORCH PROFILER WARNING: XPU is not supported")
             activities = [ProfilerActivity.CPU, ProfilerActivity.CUDA]
-        with profile(activities=activities) as prof:
+        with profile(activities=activities, record_shapes=True) as prof:
             model = pretrain(
                 train_valid_test_datasets_provider,
                 model_provider,
