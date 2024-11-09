@@ -470,6 +470,7 @@ def throughput_calculator(model, args, iteration_time, total_iterations):
     num_layers = args.num_layers
     vocab_size = args.padded_vocab_size
     gqa = args.num_attention_heads // args.num_key_value_heads
+    num_experts_routed_to = args.topk
     ffn_multiplier = 3 if args.swiglu else 2
     macs_per_flops = 2
 
@@ -478,7 +479,7 @@ def throughput_calculator(model, args, iteration_time, total_iterations):
     # correction has been made to TFLOPs formula due to incorrect behavior
     # observed with selective recompute when GQA not used and for all with GQA
     seq_len = args.seq_length
-    if hasattr(args, "actual_seq_length"):
+    if hasattr(args, 'actual_seq_length'):
         seq_len = args.actual_seq_length
     pre_and_post_mha_gemm_macs = (
         batch_size * num_layers * (1 + (2 // gqa) + 1) * (hidden_size**2) * seq_len
@@ -493,6 +494,7 @@ def throughput_calculator(model, args, iteration_time, total_iterations):
         * ffn_hidden_size
         * hidden_size
         * seq_len
+        * num_experts_routed_to
     )
     logit_lmhead_gemm_macs = batch_size * vocab_size * hidden_size * seq_len
 

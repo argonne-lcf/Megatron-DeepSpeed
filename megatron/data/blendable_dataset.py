@@ -41,7 +41,7 @@ class BlendableDataset(torch.utils.data.Dataset):
         # Build indicies.
         @dlp.log
         def _build_indices():
-            start_time = time.time()
+            start_time = time.perf_counter()
             dataset_index = np.zeros(self.size, dtype=np.int64)
             dataset_sample_index = np.zeros(self.size, dtype=np.int64)
 
@@ -49,8 +49,10 @@ class BlendableDataset(torch.utils.data.Dataset):
             helpers.build_blending_indices(dataset_index, dataset_sample_index,
                                            weights, num_datasets, self.size,
                                            torch.distributed.get_rank() == 0)
-            log.info('> elapsed time for building blendable dataset indices: '
-                         '{:.2f} (sec)'.format(time.time() - start_time))
+            log.info(
+                "> elapsed time for building blendable dataset indices: "
+                f"{time.perf_counter() - start_time:.2f} (sec)"
+            )
             return dataset_index, dataset_sample_index
 
         desc = "Blendable dataset\n\n"
@@ -74,15 +76,15 @@ class BlendableDataset(torch.utils.data.Dataset):
                       ' dataset, building indices on rank 0 ...', flush=True)
                 dataset_index, dataset_sample_index = _build_indices()
                 try:
-                    log.info(" > saving index map files")
-                    start_time = time.time()
+                    log.debug(" > saving index map files")
+                    start_time = time.perf_counter()
                     os.makedirs(os.path.dirname(index_path), exist_ok=True)
                     with open(desc_path, 'wt') as fd:
                         fd.write(desc)
                         np.save(index_path, dataset_index, allow_pickle=True)
                         np.save(sample_index_path, dataset_sample_index,
                                 allow_pickle=True)
-                    log.info(f" > finished saving index map files in {time.time() - start_time} seconds")
+                    log.info(f" > finished saving index map files in {time.perf_counter() - start_time} seconds")
                 except OSError:
                     print(f'There was an error trying to create the data cache directory ({data_cache_path})')
                     print('or a file in it. This is set with the --data-cache-path argument. Please')
@@ -105,15 +107,15 @@ class BlendableDataset(torch.utils.data.Dataset):
             torch.distributed.barrier(group=mpu.get_data_parallel_group())
             torch.distributed.barrier(group=mpu.get_pipeline_model_parallel_group())
             torch.distributed.barrier(group=mpu.get_data_parallel_group())
-            
-            start_time = time.time()
+
+            start_time = time.perf_counter()
             log.info(f'> loading blendable dataset index: {index_path}')
             self.dataset_index = np.load(index_path, allow_pickle=True, mmap_mode='r')
             assert self.dataset_index.size == self.size
             log.info(f'> loading blendable dataset sample index: {sample_index_path}')
             self.dataset_sample_index = np.load(sample_index_path, allow_pickle=True, mmap_mode='r')
             assert self.dataset_sample_index.size == self.size
-            log.info(f'> finished loading in {time.time() - start_time} seconds')            
+            log.info(f'> finished loading in {time.perf_counter() - start_time} seconds')
         else:
             self.dataset_index, self.dataset_sample_index = _build_indices()
 
@@ -139,4 +141,4 @@ class BlendableDataset(torch.utils.data.Dataset):
         return {
             "dataset_idx" : dataset_idx,
             **self.datasets[dataset_idx][sample_idx],
-        }            
+        }

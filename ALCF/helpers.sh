@@ -9,7 +9,7 @@
 #     ```bash
 #     $ git clone https://github.com/argonne-lcf/Megatron-DeepSpeed
 #     $ cd Megatron-DeepSpeed
-#     $ export PBS_O_WORKDIR=$(pwd) && source ALCF/helpers.sh && ezpz_setup
+#     $ export PBS_O_WORKDIR=$(pwd) && source ALCF/helpers.sh && setup
 #     ```
 #
 # and this will, automatically:
@@ -141,7 +141,6 @@ setup() {
     setup_run_cmd "$@" || exit
 }
 
-
 #####################################################
 # setup_run_cmd
 #
@@ -174,119 +173,110 @@ setup_run_cmd() {
     export data_cache_path="${CKPT_DIR}/${DATA_CACHE_PATH}" && mkdir -p "${data_cache_path}"
     printf "\n"
     echo "Using data_cache_path: ${data_cache_path}"
-    TRAIN_SPLIT="${TRAIN_SPLIT:-100}"
-    VAL_SPLIT="${VAL_SPLIT:-0}"
-    TEST_SPLIT="${TEST_SPLIT:-0}"
-    LOG_INTERVAL="${LOG_INTERVAL:-1}"
-    DEFAULTS=(
-        "--split ${TRAIN_SPLIT},${VAL_SPLIT},${TEST_SPLIT}"
-        "--log-interval ${LOG_INTERVAL}"
-        "--no-bias-gelu-fusion"
-        "--no-bias-dropout-fusion"
-        "--no-masked-softmax-fusion"
-        "--no-gradient-accumulation-fusion"
-        "--accumulate-allreduce-grads-in-fp32"
-    )
-    # export DEFAULTS="\
-    #     --split ${TRAIN_SPLIT},${VAL_SPLIT},${TEST_SPLIT} \
-    #     --log-interval ${LOG_INTERVAL} \
-    #     --no-bias-gelu-fusion \
-    #     --no-bias-dropout-fusion \
-    #     --no-masked-softmax-fusion \
-    #     --no-gradient-accumulation-fusion \
-    #     --accumulate-allreduce-grads-in-fp32"
-    # OVERRIDE_CKPT_OPT_PARAM="${OVERRIDE_CKPT_OPT_PARAM:-}"
-    if [[ -z "${OVERRIDE_CKPT_OPT_PARAM:-}" ]]; then
-        DEFAULTS+=("--use-checkpoint-opt_param-scheduler")
-    fi
-    if [[ "${SP}" -gt 1 ]]; then
-        DEFAULTS+=(
-        "--ds-sequence-parallel-size ${SP}"
-        "--force-ds-sequence-parallel"
-        )
-    fi
     ##################################################################
     # WARN: to disable Llama-type architectures, toggle via:
     # `NO_LLAMA=1 bash train_llama_alcf.sh`
     ##################################################################
-    LLAMA_ARGS=""
-    if [[ "${SP}" == 1 ]]; then
-        export LLAMA_ARGS="${LLAMA_ARGS} "
-    else
-        export LLAMA_ARGS=""
-        echo "NOT USING ROTARY EMBEDDINGS! LLAMA_ARGS=${LLAMA_ARGS}"
-    fi
     if [[ -z "${NO_LLAMA:-}" ]]; then
         llama_flags=(
-			"--swiglu"
+            "--swiglu"
             "--hidden-dropout 0"
             "--attention-dropout 0"
-			"--normalization rmsnorm"
-			"--disable-bias-linear"
+            "--normalization rmsnorm"
+            "--disable-bias-linear"
             "--no-query-key-layer-scaling"
-			"--use-rotary-position-embeddings"
-			"--untie-embeddings-and-output-weights"
+            "--use-rotary-position-embeddings"
+            "--untie-embeddings-and-output-weights"
             "--num-key-value-heads ${NUM_KV_HEAD}"
             "--ffn-hidden-size ${FFN_HIDDEN_SIZE}"
         )
     fi
+    # min_lr=$(python3 -c 'print(f"{2 / (10 ** 5):.8f}")')
+    # "--min-lr ${LR:-${min_lr}}"  # 2e-5
+    # "--min-lr ${MIN_LR:-"2e-6"}"  # 2e-5
+    lr_flags=(
+        "--lr ${LR:-0.0002}"
+        "--lr-decay-style ${LR_DECAY_STYLE:-cosine}"
+        "--lr-warmup-fraction ${LR_WARMUP_FRAC:-0.05}"
+    )
+    if [[ -n "${LR_DECAY_ITERS:-}" ]]; then
+        lr_flags+=("--lr-decay-iters ${LR_DECAY_ITERS:-}")
+    fi
 
-    TENSORBARD_ARGS=()
-    if [[ -z "${USE_TENSORBARD:-}" ]]; then
+    tb_flags=()
+    if [[ -z "${NO_TENSORBOARD:-}" ]]; then
         TBDIR="${CKPT_DIR}/tensorboard"
         mkdir -p "${TBDIR}"
-        # --log-timers-to-tensorboard \
-        # --log-optimizer-states-to-tensorboard"
-        # --tensorboard-dir ${TBDIR} \
-        TENSORBARD_ARGS+=(
+        tb_flags+=(
             "--log-timers-to-tensorboard"
             "--log-optimizer-states-to-tensorboard"
             "--tensorboard-dir ${TBDIR}"
         )
     fi
     dfl_fallback="${DATA_FILE_LIST:-${PBS_O_WORKDIR}/ALCF/data-lists/$(get_machine_name)/dolma.txt}"
-    export ADAM_BETA1="${ADAM_BETA1:-0.9}"
-    export ADAM_BETA2="${ADAM_BETA2:-0.95}"
-    export ADAM_EPS="${ADAM_EPS:-0.00001}" # 1 * 10^{-5}
-    export run_cmd=(
-        "${LAUNCHER}"
-        "--${DTYPE}"
-        "${DEFAULTS[@]}"
-        "--optimizer ${OPT}"
-        "--save ${CKPT_DIR}"
-        "--load ${CKPT_DIR}"
-        "--seq-length ${SEQ}"
-        "--num-layers ${NLAYERS}"
-        "--hidden-size ${HIDDEN}"
-        "--train-iters ${TRAIN_ITERS}"
-        "--eval-iters ${EVAL_ITERS}"
-        "--distributed-backend ${BE}"
-        "--adam-beta1 ${ADAM_BETA1:-0.9}"
-        "--adam-beta2 ${ADAM_BETA2:-0.95}"
-        "--adam-eps ${ADAM_EPS:-0.00001}"
-        "--clip-grad ${CLIP_GRAD:-1.0}"
-        "--weight-decay ${WEIGHT_DECAY:-0.1}"
-        "--num-attention-heads ${HEADS}"
-        "--save-interval ${SAVE_INTERVAL}"
-        "--eval-interval ${EVAL_INTERVAL}"
-        "--max-position-embeddings ${SEQ}"
-        "--micro-batch-size ${MICRO_BATCH}"
-        "--tensor-model-parallel-size ${TP}"
-        "--global-batch-size ${GLOBAL_BATCH}"
-        "--pipeline-model-parallel-size ${PP}"
-        "--data-cache-path ${data_cache_path}"
-        "--data-file-list ${DATA_FILE_LIST:-${dfl_fallback}}"
-        "${TENSORBARD_ARGS[@]}"
-        "${DATA_FLAGS}"
-        "${LR_ARGS}"
+
+    train_args=()
+    if [[ -z "${OVERRIDE_CKPT_OPT_PARAM:-}" ]]; then
+        train_args+=("--use-checkpoint-opt_param-scheduler")
+    fi
+    # "--init-method-std ${INIT_METHOD_STD:-0.0006}"
+    # "--shuffle-sample"
+    train_args+=(
+        "${lr_flags[@]}"
+        "${custom_args[@]}"
         "${llama_flags[@]}"
+        "${DATA_FLAGS}"
         "${FLASH_ARG}"
         "${TIMING_STR}"
         "${TOKENIZER_FLAGS}"
+        "${tb_flags[@]}"
         "${ds_args[@]}"
         "${gpt_args[@]}"
-        "${custom_args[@]}"
+        "--${DTYPE}"
+        "--shuffle-sample-in-corpus"
+        "--blend-sample-in-corpus"
+        "--accumulate-allreduce-grads-in-fp32"
+        "--no-bias-gelu-fusion"
+        "--no-bias-dropout-fusion"
+        "--no-masked-softmax-fusion"
+        "--no-gradient-accumulation-fusion"
+        "--optimizer=${OPT}"
+        "--tensor-model-parallel-size=${TP}"
+        "--pipeline-model-parallel-size=${PP}"
+        "--max-position-embeddings=${SEQ}"
+        "--micro-batch-size=${MICRO_BATCH}"
+        "--ds-sequence-parallel-size=${SP}"
+        "--global-batch-size=${GLOBAL_BATCH}"
+        "--split=${TRAIN_SPLIT:-990},${VAL_SPLIT:-10},${TEST_SPLIT:-0}"
+        "--timing-log-level=${TIMING_LOG_LEVEL:-1}"
+        "--eval-interval=${EVAL_INTERVAL:-100}"
+        "--eval-iters=${EVAL_ITERS:-20}"
+        "--save-interval=${SAVE_INTERVAL:-50}"
+        "--log-interval=${LOG_INTERVAL:-1}"
+        "--save=${SAVE:-${CKPT_DIR}}"
+        "--load=${LOAD:-${CKPT_DIR}}"
+        "--seq-length=${SEQ}"
+        "--num-layers=${NLAYERS}"
+        "--hidden-size=${HIDDEN}"
+        "--train-iters=${TRAIN_ITERS}"
+        "--distributed-backend=${BE}"
+        "--weight-decay=${WEIGHT_DECAY:-0.1}"
+        "--adam-beta1=${ADAM_BETA1:-0.9}"
+        "--adam-beta2=${ADAM_BETA2:-0.95}"
+        "--adam-eps=${ADAM_EPS:-0.00001}"
+        "--clip-grad=${CLIP_GRAD:-1.0}"
+        "--num-attention-heads=${HEADS}"
+        "--data-cache-path=${data_cache_path}"
+        "--data-file-list=${DATA_FILE_LIST:-${dfl_fallback}}"
     )
+    # "--adam-eps ${ADAM_EPS:-0.00001}"
+    cache_dir="${PBS_O_WORKDIR}/.cache/"
+    mkdir -p "${cache_dir}"
+    targs_cache="${cache_dir}/train_args.txt"
+    for arg in "${train_args[@]}"; do echo "${arg}" >>"${targs_cache}"; done
+    export TRAIN_ARGS=("$(printf '%s\n' "${train_args[@]}" | sort)")
+    printf "Training Arguments: %s\n" "${TRAIN_ARGS[@]}"
+    export run_cmd=("${LAUNCHER}" "${train_args[@]}")
 }
 
 save_dotenv() {
@@ -430,17 +420,20 @@ setupLauncher() {
     printf " %s" "$(printMagenta "${LAUNCHER}")"
 }
 
-set_lr_args() {
-    LR_ARGS="--lr ${LR} --lr-decay-style cosine"
-    if [[ -n "${LR_DECAY_ITERS:-}" ]]; then
-        LR_ARGS="${LR_ARGS} --lr-decay-iters ${LR_DECAY_ITERS}"
-    fi
-    if [[ -n "${LR_WARMUP_FRAC}" ]]; then
-        LR_ARGS="${LR_ARGS} --lr-warmup-fraction ${LR_WARMUP_FRAC}"
-    fi
-    echo "LR_ARGS: ${LR_ARGS}"
-    export LR_ARGS="${LR_ARGS}"
-}
+# set_lr_args() {
+#     export LR=${LR:-0.0002}                       # LEARNING_RATE
+#     export LR_WARMUP_FRAC=${LR_WARMUP_FRAC:-0.05} # LEARNING RATE WARMUP
+#     export LR_DECAY_ITERS=${LR_DECAY_ITERS:-}     # LR DECAY ITERS
+#     LR_ARGS="--lr ${LR} --lr-decay-style cosine"
+#     if [[ -n "${LR_DECAY_ITERS:-}" ]]; then
+#         LR_ARGS="${LR_ARGS} --lr-decay-iters ${LR_DECAY_ITERS}"
+#     fi
+#     if [[ -n "${LR_WARMUP_FRAC}" ]]; then
+#         LR_ARGS="${LR_ARGS} --lr-warmup-fraction ${LR_WARMUP_FRAC}"
+#     fi
+#     echo "LR_ARGS: ${LR_ARGS}"
+#     export LR_ARGS="${LR_ARGS}"
+# }
 
 #########################################################################
 # `get_batch_size_on_polaris`: Identify MICRO_BATCH to use on Polaris.
@@ -495,12 +488,14 @@ _get_num_hosts_from_hostfile() {
 #
 #   [2 tiles] x [6 xpus / tile] = 12 xpus
 #
-# |    nnhosts    |   nhosts  |  GAS  |
-# |:-------------:|:---------:|:-----:|
-# | 64 <= n < inf | [64, inf) |   1   |
-# | 32 <= n < 64  | [32, 64)  |   2   |
-# | 16 <= n < 32  | [16, 32)  |   4   |
-# |  0 <= n < 16  | [0, 16)   |   8   |
+# |     nnhosts     |   nhosts   |  GAS  |
+# |:---------------:|:----------:|:-----:|
+# | 256 <= n < inf  | [256, inf) |   1   |
+# | 128 <= n < 256  | [128, 256) |   2   |
+# |  32 <= n < 128  | [32, 128)  |   4   |
+# |  16 <= n < 32   | [16, 32)   |   8   |
+# |   0 <= n < 16   | [0, 16)    |  16   |
+#
 ###########################################
 get_grad_acc_steps_on_aurora() {
     if [[ "$#" == 0 ]]; then
@@ -508,18 +503,21 @@ get_grad_acc_steps_on_aurora() {
     elif [[ "$#" == 1 ]]; then
         hf="$1"
     else
+        echo "Usage: get_grad_acc_steps_on_aurora"
         echo "Expected exactly 0 or 1 arguments, received: $#"
         exit 1
     fi
     nhosts=$(wc -l <"${hf}")
-    if [[ 64 -le "${nhosts}" ]]; then
+    if [[ "${nhosts}" -gt 256 ]]; then
         gas=1
-    elif [[ 32 -le "${nhosts}" && "${nhosts}" -lt 64 ]]; then
+    elif [[ 128 -le "${nhosts}" && "${nhosts}" -lt 256 ]]; then
         gas=2
-    elif [[ 16 -le "${nhosts}" && "${nhosts}" -lt 32 ]]; then
+    elif [[ 32 -le "${nhosts}" && "${nhosts}" -lt 128 ]]; then
         gas=4
-    else
+    elif [[ 16 -le "${nhosts}" && "${nhosts}" -lt 32 ]]; then
         gas=8
+    else
+        gas=16
     fi
     echo "${gas}"
 }
@@ -571,7 +569,7 @@ setParams() {
     mn=$(get_machine_name)
     if [[ "${mn}" == "aurora" || "${mn}" == "sunspot" ]]; then
         TP=${TP:-1} # TP = 1
-        export SAVE_INTERVAL="${SAVE_INTERVAL:-20}"
+        export SAVE_INTERVAL="${SAVE_INTERVAL:-50}"
         export CCL=${CCL:-ccl}      # CCL
         export BE="${CCL}"          # COMMUNICATION BACKEND = CCL
         export DTYPE=${DTYPE:-bf16} # DTYPE: bf16
@@ -580,7 +578,12 @@ setParams() {
         export GRAD_ACC_STEPS="${GRAD_ACC_STEPS:-${gas}}"
         # export GRAD_ACC_STEPS="${GRAD_ACC_STEPS:-$(get_grad_acc_steps_on_aurora "$@)}"
         echo "[setParams] Using GRAD_ACC_STEPS: ${GRAD_ACC_STEPS}"
-        MICRO_BATCH=${MICRO_BATCH:-4} # MICRO_BATCH = 4
+        MICRO_BATCH=${MICRO_BATCH:-1}
+        if [[ -n "${NO_FLASH_ATTN-}" ]]; then
+            echo "Not using flash-attn!!"
+        else
+            FLASH_ARG="--use-flash-attn-builder"
+        fi
         #### [sam: 08/17/2024] ##########################################
         # Use best set of CCL env vars from Gordon Bell runs on Aurora
         set_ccl_vars_on_aurora
@@ -592,21 +595,19 @@ setParams() {
         # use_kvs_fix_on_aurora  # <-- why are these different from those in update_ccl_env_vars_aurora ??
         # update_ccl_env_vars_aurora
         ######################################################################
-        if [[ -z "${USE_FLASH_ATTN:-}" ]]; then
-            # NOTE: if NO_FLASH_ATTN is NON-empty; then NO FLASH ATTN !!
-            export NO_FLASH_ATTN=1 # disabled on [2024-06-20] waiting on fix...
-            if [[ -n "${NO_FLASH_ATTN-}" ]]; then
-                echo "Not using flash-attn!!"
-            else
-                FLASH_ARG="--use-flash-attn-builder"
-            fi
-        else
-            echo "Using flash-attn !!"
-            FLASH_ARG="--use-flash-attn-builder"
-        fi
-        ######################################################################
-    # +--------[Polaris]-----------------------------------+
-    # elif [[ $(hostname) == x3* ]]; then
+        # if [[ -z "${USE_FLASH_ATTN:-}" ]]; then
+        #     # NOTE: if NO_FLASH_ATTN is NON-empty; then NO FLASH ATTN !!
+        #     export NO_FLASH_ATTN=1 # disabled on [2024-06-20] waiting on fix...
+        #     if [[ -n "${NO_FLASH_ATTN-}" ]]; then
+        #         echo "Not using flash-attn!!"
+        #     else
+        #         FLASH_ARG="--use-flash-attn-builder"
+        #     fi
+        # else
+        #     echo "Using flash-attn !!"
+        #     FLASH_ARG="--use-flash-attn-builder"
+        # fi
+    # [Polaris]
     elif [[ "${mn}" == "polaris" || "${mn}" == "sirius" ]]; then
         # export LAUNCH_CMD="${LAUNCH_CMD:-deepspeed}"
         TP=${TP:-1}               # TP = 2
@@ -625,30 +626,25 @@ setParams() {
         fi
         echo "Setting up AWS NCCL OFI Plugin on Polaris..."
         source "${WORKING_DIR}/ALCF/aws_ofi_nccl_plugin.sh" || exit
-    # +--------[Perlmutter]---------------------------------+
-    # elif [[ $(hostname) == login* || $(hostname) == nid* ]]; then
+    # [Perlmutter]
     elif [[ "${mn}" == login* || "${mn}" == nid* ]]; then
         TP="${TP:-2}"
         export NCCL="${NCCL:-nccl}"
         export BE="${NCCL}"
         export DTYPE="${DTYPE:-bf16}"
-        MICRO_BATCH="${MICRO_BATCH:-8}"
+        MICRO_BATCH="${MICRO_BATCH:-1}"
         if [[ -n "${NO_FLASH_ATTN-}" ]]; then
             echo "Not using flash-attn!!"
         else
             FLASH_ARG="--use-flash-attn-v2"
         fi
     fi
-    # +----------------------------------------------------------------------+
     export TP="${TP}"
     export PP="${PP:-1}"
     export SP="${SP:-1}"
     export FLASH_ARG="${FLASH_ARG}"
     export DTYPE="${DTYPE:-bf16}"
     export OPT="${OPT:-adamw}"
-    # export ADAM_BETA1="${ADAM_BETA1:-0.9}"
-    # export ADAM_BETA2="${ADAM_BETA2:-0.95}"
-    # export ADAM_EPS="${ADAM_EPS:-0.00001}" # 1 * 10^{-5}
     export WEIGHT_DECAY="${WEIGHT_DECAY:-0.1}"
     export HOSTFILE="${HOSTFILE:-${PBS_NODEFILE}}"
     NHOSTS=$(wc -l <"${HOSTFILE}")
@@ -667,18 +663,19 @@ setParams() {
     # +---[Run Settings]------------------------------------------------------+
     export SEQ=${SEQ:-4096}                                                               # SEQ_LEN: 4096
     export ZERO_STAGE=${ZERO_STAGE:-1}                                                    # ZERO OFFLOADING STAGE
-    export MICRO_BATCH=${MICRO_BATCH:-8}                                                  # MICRO BATCH SIZE
+    export MICRO_BATCH=${MICRO_BATCH:-1}                                                  # MICRO BATCH SIZE
     export GRAD_ACC_STEPS=${GRAD_ACC_STEPS:-1}                                            # GRADIENT ACCUMULATION STEPS
-    export EVAL_ITERS="${EVAL_ITERS:-10}"                                                 # NUMBER OF EVAL ITERS TO RUN
-    export EVAL_INTERVAL="${EVAL_INTERVAL:-50000}"                                        # HOW FREQUENTLY TO RUN EVAL
-    export SAVE_INTERVAL=${SAVE_INTERVAL:-50}                                             # HOW FREQUENTLY TO SAVE CKPTS
     export TIMING_LOG_LEVEL="${TIMING_LOG_LEVEL:-1}"                                      # TIMING VERBOSITY IN LOGS
     export ACT_CKPT_NUM_LAYERS="${ACT_CKPT_NUM_LAYERS:-1}"                                # NUM LAYERS TO CHECKPOINT ACTIVATIONS
-    export USE_ACTIVATION_CHECKPOINTING=${USE_ACTIVATION_CHECKPOINTING:-1}                # USE ACTIVATION CHECKPOINTING ?
+    export USE_ACTIVATION_CHECKPOINTING=${USE_ACTIVATION_CHECKPOINTING:-}                 # USE ACTIVATION CHECKPOINTING ?
     export GLOBAL_BATCH_MAX=$((WORLD_SIZE * MICRO_BATCH * GRAD_ACC_STEPS / TP / PP / SP)) # MAX GLOBAL BATCH SIZE
     export GLOBAL_BATCH="${GLOBAL_BATCH:-${GLOBAL_BATCH_MAX}}"                            # WILL USE MAX IF NOT SET IN ENVIRONMENT
-    # export TRAIN_ITER=${TRAIN_ITER:-317892}             # NUMBER OF TRAIN ITERS
-    if [[ -z "${TRAIN_ITERS:-${TRAIN_ITER:-}}" ]]; then
+    if [[ -n "${TRAIN_TOKENS:-}" ]]; then
+        export TRAIN_TOKENS="${TRAIN_TOKENS}"
+        export TRAIN_ITERS=$((TRAIN_TOKENS / SEQ / GLOBAL_BATCH))
+        printf "TRAIN_TOKENS=%s (=%sB tokens)\n" "${TRAIN_TOKENS}" "$((TRAIN_TOKENS / 10 ** 9))"
+        printf "TRAIN_ITERS=%s\n" "${TRAIN_ITERS}"
+    elif [[ -z "${TRAIN_ITERS:-${TRAIN_ITER:-}}" ]]; then
         export TRAIN_TOKENS=${TRAIN_TOKENS:-2000000000000}
         export TRAIN_ITERS=$((TRAIN_TOKENS / SEQ / GLOBAL_BATCH))
         printf "TRAIN_TOKENS=%s (=%sB tokens)\n" "${TRAIN_TOKENS}" "$((TRAIN_TOKENS / 10 ** 9))"
@@ -694,22 +691,20 @@ setParams() {
     #
     #   For this reason, we only use the default LLAMA_ARGS when SP=0.
     ##########################################################################
+    # # -----[Learning Rate Settings]--------------------------------------------
+    # export LR=${LR:-0.0002}                       # LEARNING_RATE
+    # export LR_WARMUP_FRAC=${LR_WARMUP_FRAC:-0.05} # LEARNING RATE WARMUP
+    # export LR_DECAY_ITERS=${LR_DECAY_ITERS:-}     # LR DECAY ITERS
+    # set_lr_args
     # -----[Learning Rate Settings]--------------------------------------------
-    export LR=${LR:-0.0003}                       # LEARNING_RATE
-    export LR_WARMUP_FRAC=${LR_WARMUP_FRAC:-0.05} # LEARNING RATE WARMUP
-    export LR_DECAY_ITERS=${LR_DECAY_ITERS:-}     # LR DECAY ITERS
-    set_lr_args
-    # -----[Learning Rate Settings]--------------------------------------------
+    # # if [[ "${TIMING_LOG_LEVEL:-1}" -gt 1 ]]; then
     # if [[ "${TIMING_LOG_LEVEL:-1}" -gt 1 ]]; then
-    if [[ "${TIMING_LOG_LEVEL:-1}" -gt 1 ]]; then
-        TIMING_STR="\
-            --timing-log-level ${TIMING_LOG_LEVEL}"
-            # --log-timers-to-tensorboard \
-            # --log-optimizer-states-to-tensorboard \
-        # "
-    else
-        TIMING_STR=""
-    fi
+    #     TIMING_STR="\
+    #         --timing-log-level ${TIMING_LOG_LEVEL}"
+    #     # "
+    # else
+    #     TIMING_STR=""
+    # fi
 }
 
 ##############################################
@@ -741,7 +736,7 @@ set_args() {
     # if [[ "${ZERO_STAGE}" == 3 ]]; then
     #     ds_args="--use-mics ${ds_args}"
     # fi
-    if [[ "$USE_ACTIVATION_CHECKPOINTING" == 1 ]]; then
+    if [[ -n "${USE_ACTIVATION_CHECKPOINTING:-}" ]]; then
         echo "!! Caught USE_ACTIVATION_CHECKPOINTING=${USE_ACTIVATION_CHECKPOINTING} !!"
         ds_args+=("--deepspeed-activation-checkpointing")
         # ds_args=" --deepspeed-activation-checkpointing ${ds_args}"
@@ -857,7 +852,7 @@ get_output_prefix() {
     pre="${pre}_sp${SP}_pp${PP}_tp${TP}_${DTYPE}_opt${OPT}"
     pre="${pre}_lr${LR}_lwf${LR_WARMUP_FRAC}"
     if [[ -n "${TOKENIZER_TYPE:-}" ]]; then
-        _tok=$(echo "${TOKENIZER_TYPE}" | sed 's/Tokenizer//g')  # noqa
+        _tok=$(echo "${TOKENIZER_TYPE}" | sed 's/Tokenizer//g') # noqa
         pre="${pre}_tok${_tok}"
     fi
     if [[ -n "${LR_DECAY_ITERS}" ]]; then
@@ -904,6 +899,7 @@ buildDSconfig() {
     echo "DS_CONFIG: ${DS_CONFIG}"
     printf "ZS: %s, MB: %s, GB: %s, PP: %s, DTYPE: %s" "${ZERO_STAGE}" "${MICRO_BATCH}" "${GLOBAL_BATCH}" "${PP}" "${DTYPE}"
     generateDSconfig "${DS_CONFIG}"
+    cat "${DS_CONFIG}" | jq .
 }
 
 ###############################################################################
@@ -1122,7 +1118,7 @@ setData() { # ------------------------[dfl: abbrv. for DATA_FILE_LIST]
 }
 
 generateDSconfig_new() {
-    cat <<EOT > "${CONFIG_JSON}"
+    cat <<EOT >"${CONFIG_JSON}"
     {
     "train_batch_size" : $GLOBAL_BATCH,
     "train_micro_batch_size_per_gpu": $MICRO_BATCH,
@@ -1175,31 +1171,22 @@ generateDSconfig() {
     common="\
         \"train_batch_size\": $GLOBAL_BATCH,
         \"train_micro_batch_size_per_gpu\": $MICRO_BATCH,
+        \"gradient_clipping\": 1.0,
         \"steps_per_print\": 1,
         \"gradient_accumulation_steps\": $GRAD_ACC_STEPS,
         \"zero_force_ds_cpu_optimizer\": false,
         \"zero_allow_untested_optimizer\": true,
-        \"gradient_clipping\": 1.0,
         \"wall_clock_breakdown\": false,"
-    if [[ "${USE_ACTIVATION_CHECKPOINTING}" == 1 ]]; then
-        activation_checkpointing="\
-            \"activation_checkpointing\": {
-            \"partition_activations\": true,
-            \"contiguous_memory_optimization\": true
-            },"
-    fi
-    flops_profiler="\
-        \"flops_profiler\": {
-          \"enabled\": true,
-          \"profile_step\": 2,
-          \"module_depth\": -1,
-          \"top_modules\": 1,
-          \"detailed\": true,
-          \"output_file\": null
-        }"
+    # if [[ "${USE_ACTIVATION_CHECKPOINTING}" == 1 ]]; then
+    #     activation_checkpointing="\
+    #         \"activation_checkpointing\": {
+    #         \"partition_activations\": true,
+    #         \"contiguous_memory_optimization\": true
+    #         },"
+    # fi
     if [[ $DTYPE == "bf16" ]]; then
+        # \"communication_data_type\": \"bf16\",
         dtype="\
-            \"communication_data_type\": \"bf16\",
             \"fp16\": {
               \"enabled\": false,
               \"loss_scale\": 0,
@@ -1228,16 +1215,34 @@ generateDSconfig() {
     else
         dtype="\"communication_data_type\": \"fp32\","
     fi
-    if [[ "${OPT:-adamw}" == "ds.adamw" ]]; then
+    if [[ "${OPT:-}" == "ds.adamw" ]]; then
         optimizer="\
             \"optimizer\": {
                 \"type\": \"AdamW\",
                 \"params\": {
                 \"lr\": ${LR},
-                \"beta1\": 0.9,
-                \"beta2\": 0.95,
-                \"eps\": 1e-5,
+                \"beta1\": ${ADAM_BETA1},
+                \"beta2\": ${ADAM_BETA2},
+                \"eps\": ${ADAM_EPS},
                 \"weight_decay\": 1e-1
+            },
+        },"
+    elif [[ "${OPT:-}" == "ds.onebitlamb" ]]; then
+        optimizer="\
+            \"optimizer\": {
+                \"type\": \"OneBitLamb\",
+                \"params\": {
+                    \"lr\": 11e-3,
+                    \"max_coeff\": 0.3,
+                    \"min_coeff\": 0.01,
+                    \"freeze_step\": 1000,
+                    \"cuda_aware\": false,
+                    \"comm_backend_name\": \"${BE}\",
+                    \"coeff_beta\": 0.9,
+                    \"factor_max\": 4.0,
+                    \"factor_min\": 0.5,
+                    \"factor_threshold\": 0.1
+                }
             },"
     else
         optimizer=""
@@ -1267,7 +1272,7 @@ generateDSconfig() {
             },"
     # elif [[ $ZERO_STAGE == 2 ]]; then
     elif [[ "${ZERO_STAGE}" == 2 || "${ZERO_STAGE}" == 1 ]]; then
-        if [[ -z "${CPU_OPTIMIZER:-}" ]]; then
+        if [[ -n "${CPU_OPTIMIZER:-}" ]]; then
             echo "!!!! CAUGHT CPU_OPTIMIZER !!!!"
             zero="\
                 \"zero_optimization\": {
@@ -1304,6 +1309,15 @@ generateDSconfig() {
     else
         echo 'Please add the correct config set!!!'
     fi
+    flops_profiler="\
+        \"flops_profiler\": {
+          \"enabled\": true,
+          \"profile_step\": 2,
+          \"module_depth\": -1,
+          \"top_modules\": 1,
+          \"detailed\": true,
+          \"output_file\": null
+        }"
     cat <<EOT >"$1"
 {
 $common
@@ -1388,6 +1402,7 @@ printWhite() {
 reset_env() {
     custom_vars=(
         NO_FLASH_ATTN
+        USE_FLASH_ATTN
         TP
         PP
         SP
@@ -1415,7 +1430,6 @@ reset_env() {
         TRAIN_TOKENS
         TRAIN_ITERS
         MODEL_TYPE
-        LLAMA_ARGS
         LR
         LR_WARMUP_FRAC
         LR_DECAY_ITERS
@@ -1447,10 +1461,24 @@ reset_env() {
         data_cache_path
         DEFAULTS
     )
+    # LLAMA_ARGS
     printf "Unsetting custom vars: %s\n" "${custom_vars[*]}"
     unset "${custom_vars[@]}"
 }
 
+convert_ckpt_to_universal() {
+    if [[ "$#" -ne 1 ]]; then
+        echo "Usage: convert_ckpt_to_universal ckpt_dir"
+        echo "Expected one argument (ckpt_dir), received: $#"
+        exit 1
+    fi
+    ckptdir=$1
+    gs=$(cat "${ckptdir}/latest_checkpointed_iteration.txt")
+    src="${ckptdir}/global_step${gs}"
+    dst="${ckptdir}/global_step${gs}_universal"
+    convert_script="${PBS_O_WORKDIR}/deps/DeepSpeed/checkpoint/ds_to_universal.py"
+    python3 "${convert_script}" --input_folder "${src}" --output_folder "${dst}"
+}
 
 ###########################
 # call helpers_main()

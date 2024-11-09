@@ -199,6 +199,10 @@ def build_train_valid_test_datasets(
                 for i in range(self.num_datasets):
                     self.desc += dataset_builders[i].prefix + ","
 
+                log.info(
+                    f"[BuildConcatDataset] Caught {args.shuffle_sample_in_corpus=} across"
+                    f" {self.num_samples} samples"
+                )
                 self.desc += (
                     f"-{self.num_samples}"
                     + f"-{dataset_builders[0].seq_length}"

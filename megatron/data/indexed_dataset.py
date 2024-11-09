@@ -16,7 +16,6 @@
 from functools import lru_cache
 import os
 
-# import logging
 import shutil
 import struct
 from itertools import accumulate
@@ -28,7 +27,6 @@ import torch
 from megatron.utils import Profile, get_logger
 
 log = get_logger(__name__)
-
 
 dlp = Profile("DATASET")
 

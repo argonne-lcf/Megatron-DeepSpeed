@@ -1,4 +1,7 @@
 #!/bin/bash --login
+#PBS -q lustre_scaling
+#PBS -A Aurora_Deployment
+#PBS -j oe
 
 #####################################
 # AuroraGPT-7B
@@ -10,6 +13,8 @@
 # 1. Navigate into `$PBS_O_WORKDIR`
 cd "${PBS_O_WORKDIR}" || exit
 HERE=$(python3 -c 'import os; print(os.getcwd())') && export HERE
+GIT_BRANCH=$(git branch --show-current) && export GIT_BRANCH
+
 
 # 2. source `ALCF/helpers.sh`
 source "${HERE}/ALCF/helpers.sh" || exit
