@@ -1,7 +1,7 @@
 # Megatron-DeepSpeed @ ALCF
 
 > [!IMPORTANT]
-> [`train_llama_alcf.sh`](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/train_llama_alcf.sh) is the main entry point for launching
+> [`train_aGPT_7B.sh`](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/train_aGPT_7B.sh) is the main entry point for launching
 > distributed training on {Polaris, Aurora, Sunspot} @ ALCF.
 
 ## 🏃‍♂️ Running
@@ -14,12 +14,12 @@ To launch on {`Polaris`, `Aurora`, `Sunspot`} @ [ALCF](https://alcf.anl.gov):
     qsub -A <your-project> -q debug -l select=2 -l walltime=01:00:00,filesystems=eagle:home -I
     ```
 
-    - Or, alternatively, you can submit [`train_llama_alcf.sh`](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/train_llama_alcf.sh)
+    - Or, alternatively, you can submit [`train_aGPT_7B.sh`](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/train_aGPT_7B.sh)
       directly as a batch script with
 
         ```bash
         cd Megatron-DeepSpeed
-        qsub -A <your-project> -q debug -l select=2 -l walltime=01:00:00:filesystems=eagle:home train_llama_alcf.sh
+        qsub -A <your-project> -q debug -l select=2 -l walltime=01:00:00:filesystems=eagle:home train_aGPT_7B.sh
         ```
 
 </details>
@@ -201,13 +201,13 @@ will (1.)
     ```bash
     # for systems other than Polaris, replace "polaris/books.txt" below with:
     # "{aurora,sunspot}/books.txt", 
-    PBS_O_WORKDIR=$(pwd) DATA_FILE_LIST=./ALCF/data-lists/polaris/books.txt TRAIN_ITER=1000 NLAYERS=10 MICRO_BATCH=2 OPT=adamw bash train_llama_alcf.sh
+    PBS_O_WORKDIR=$(pwd) DATA_FILE_LIST=./ALCF/data-lists/polaris/books.txt TRAIN_ITER=1000 NLAYERS=10 MICRO_BATCH=2 OPT=adamw bash train_aGPT_7B.sh
     ```
 
     - **Note**: If no additional options specified, i.e.
 
         ```bash
-        PBS_O_WORKDIR=$(pwd) bash train_llama_alcf.sh
+        PBS_O_WORKDIR=$(pwd) bash train_aGPT_7B.sh
         ```
 
       then this will fallback to using the default AuroraGPT-7B architecture
@@ -226,7 +226,7 @@ will (1.)
     $ export PBS_O_WORKDIR=$(pwd) && source ALCF/helpers.sh && setup_python
 
     #[🌌][10:46:57 AM][foremans@x4711c1s2b0n0][…/Megatron-DeepSpeed][🌱 main][$!?][aurora_nre_models_frameworks-2024.1]
-    (aurora_nre_models_frameworks-2024.1) $ PBS_O_WORKDIR=$(pwd) DATA_FILE_LIST=./ALCF/data-lists/aurora/books.txt bash train_llama_alcf.sh > train-log-$(tstamp).log 2>&1 &
+    (aurora_nre_models_frameworks-2024.1) $ PBS_O_WORKDIR=$(pwd) DATA_FILE_LIST=./ALCF/data-lists/aurora/books.txt bash train_aGPT_7B.sh > train-log-$(tstamp).log 2>&1 &
 
     Using WORKING_DIR: /gecko/Aurora_deployment/foremans/projects/argonne-lcf/Megatron-DeepSpeed
     Running on: aurora
@@ -489,7 +489,7 @@ will (1.)
 
     ```bash
     # [09:07:32 AM][foremans@x1921c0s0b0n0][~/q/llm.devkit/Megatron-DeepSpeed][🌱 main][$!?]
-    $ PBS_O_WORKDIR=$(pwd) DATA_FILE_LIST=./ALCF/data-lists/polaris/books.txt bash train_llama_alcf.sh
+    $ PBS_O_WORKDIR=$(pwd) DATA_FILE_LIST=./ALCF/data-lists/polaris/books.txt bash train_aGPT_7B.sh
     source-ing /lus/gila/projects/Aurora_deployment/foremans/q4-drop_sunspot/llm.devkit/Megatron-DeepSpeed/ALCF/helpers.sh
     Sourcing /home/foremans/q4-drop_sunspot/llm.devkit/setenv.sh...
          UMD: agama-ci-devel-736.9 successfully loaded:
@@ -671,7 +671,7 @@ will (1.)
 
     ```bash
     # [09:31:35 AM][foremans@x3112c0s13b0n0][~/pol/p/a/Megatron-DeepSpeed][🌱 main][$!?]
-    $ PBS_O_WORKDIR=$(pwd) DATA_FILE_LIST=./ALCF/data-lists/polaris/books.txt OPT=adamw bash train_llama_alcf.sh
+    $ PBS_O_WORKDIR=$(pwd) DATA_FILE_LIST=./ALCF/data-lists/polaris/books.txt OPT=adamw bash train_aGPT_7B.sh
     source-ing /lus/eagle/projects/datascience/foremans/locations/polaris/projects/argonne-lcf/Megatron-DeepSpeed/ALCF/helpers.sh
     Running on Polaris !!
 
@@ -870,8 +870,8 @@ will (1.)
 -->
 
 <!--
-export PBS_O_WORKDIR="$(pwd)" && DATA_FILE_LIST=./ALCF/data-lists/polaris/books.txt bash train_llama_alcf.sh
-export PBS_O_WORKDIR="$(pwd)" && DATA_FILE_LIST=./ALCF/data-lists/polaris/books.txt bash train_llama_alcf.sh
+export PBS_O_WORKDIR="$(pwd)" && DATA_FILE_LIST=./ALCF/data-lists/polaris/books.txt bash train_aGPT_7B.sh
+export PBS_O_WORKDIR="$(pwd)" && DATA_FILE_LIST=./ALCF/data-lists/polaris/books.txt bash train_aGPT_7B.sh
 -->
 
 
@@ -998,7 +998,7 @@ export PBS_O_WORKDIR="$(pwd)" && DATA_FILE_LIST=./ALCF/data-lists/polaris/books.
 ### Running
 
 - The (shell) script used to launch pre-training is:
-    - [`train_llama_alcf.sh`](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/train_llama_alcf.sh)
+    - [`train_aGPT_7B.sh`](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/train_aGPT_7B.sh)
 
 - This shell script will set the appropriate environment variables, load the correct conda
 modules and launch
@@ -1015,7 +1015,7 @@ modules and launch
     $ cd Megatron-DeepSpeed
     # 4. Launch:
     $ export PBS_O_WORKDIR=$(pwd)
-    $ bash train_llama_alcf_polaris.sh
+    $ bash train_aGPT_7B_polaris.sh
     ```
     <details closed><summary><b>[Output]</b></summary>
 
@@ -1075,7 +1075,7 @@ modules and launch
 
 ```bash
 $ cd Megatron-DeepSpeed
-$ qsub -A <your-project> -q debug -l select=2 -l walltime=01:00:00,filesystems=eagle:home train_llama_alcf.sh
+$ qsub -A <your-project> -q debug -l select=2 -l walltime=01:00:00,filesystems=eagle:home train_aGPT_7B.sh
 ```
 
 
