@@ -4,23 +4,13 @@
 
 import sys
 import os
-import time
 import logging
-from typing import ContextManager, Optional
+from typing import Optional
 
 import torch
 from torch.nn.parallel import DistributedDataParallel as torchDDP
 
 from deepspeed.accelerator import get_accelerator
-
-if get_accelerator().device_name() == "cuda":
-    try:
-        from apex.multi_tensor_apply import multi_tensor_applier
-        import amp_C
-
-        HAS_APEX = True
-    except Exception:
-        HAS_APEX = False
 
 from megatron import get_args, get_adlr_autoresume, get_num_microbatches
 from megatron.core import mpu
@@ -30,80 +20,115 @@ from megatron.model.rotary_pos_embedding import RotaryEmbedding
 
 import ezpz as ez
 
+ACCELERATOR = get_accelerator()
+assert ACCELERATOR is not None
+
+if ACCELERATOR.device_name() == "cuda":
+    try:
+        from apex.multi_tensor_apply import multi_tensor_applier  # type:ignore
+        import amp_C  # type:ignore
+
+        HAS_APEX = True
+    except Exception:
+        HAS_APEX = False
+
 RANK = ez.get_rank()
 log = logging.getLogger(__name__)
-# log.setLevel("INFO") if RANK == 0 else log.setLevel("CRITICAL")
-
+log.setLevel(os.environ.get("LOG_LEVEL", ("INFO" if RANK == 0 else "CRITICAL")))
 
 _DLIO_PROFILER_EXIST = True
-_DFTRACER_EXIST=True
+_DFTRACER_EXIST = True
 
 try:
-    import dftracer
-except:
-    _DFTRACER_EXIST=True
-    
+    import dftracer  # type:ignore
+except Exception:
+    _DFTRACER_EXIST = False
+
 try:
-    import dlio_profiler
-except:
+    import dlio_profiler  # type:ignore
+except Exception:
     _DLIO_PROFILER_EXIST = False
 
-    
+
 if _DFTRACER_EXIST:
-    from dftracer.logger import dftracer as PerfTrace, dft_fn as Profile, DFTRACER_ENABLE as DFTRACER_ENABLE
+    from dftracer.logger import (  # type:ignore
+        dftracer as PerfTrace,
+        dft_fn as Profile,
+        DFTRACER_ENABLE as DFTRACER_ENABLE,
+    )
 elif _DLIO_PROFILER_EXIST:
-    from dlio_profiler.logger import fn_interceptor as Profile
-    from dlio_profiler.logger import dlio_logger as PerfTrace
+    from dlio_profiler.logger import fn_interceptor as Profile  # type:ignore
+    from dlio_profiler.logger import dlio_logger as PerfTrace  # type:ignore
 else:
     from functools import wraps
-    # from contextlib import nullcontext
-    # Profile: ContextManager = nullcontext
-    #
-    # class Profile(nullable_schema)
+
     class Profile(object):
-        def __init__(self,  cat, name=None, epoch=None, step=None, image_idx=None, image_size=None):
-            return 
-        def log(self,  func):
+        def __init__(
+            self, cat, name=None, epoch=None, step=None, image_idx=None, image_size=None
+        ):
+            return
+
+        def log(self, func):
             return func
-        def log_init(self,  func):
+
+        def log_init(self, func):
             return func
-        def iter(self,  func, iter_name="step"):
+
+        def iter(self, func, iter_name="step"):
             return func
+
         def __enter__(self):
             return
+
         def __exit__(self, type, value, traceback):
             return
-        def update(self, epoch=None, step=None, image_idx=None, image_size=None, args={}):
+
+        def update(
+            self, epoch=None, step=None, image_idx=None, image_size=None, args={}
+        ):
             return
+
         def flush(self):
             return
+
         def reset(self):
             return
+
         def log_static(self, func):
             return
+
     class dftracer(object):
-        def __init__(self,):
+        def __init__(
+            self,
+        ):
             self.type = None
+
         def initialize_log(self, logfile=None, data_dir=None, process_id=-1):
             return
+
         def get_time(self):
             return
+
         def enter_event(self):
             return
+
         def exit_event(self):
             return
+
         def log_event(self, name, cat, start_time, duration, string_args=None):
             return
+
         def finalize(self):
             return
 
     PerfTrace = dftracer()
     DFTRACER_ENABLE = False
 
+
 def get_logger(
-        name: str,
-        level: str = "INFO",
-        rank_zero_only: Optional[bool] = None,
+    name: str,
+    level: Optional[str] = None,
+    rank_zero_only: Optional[bool] = True,
 ) -> logging.Logger:
     """Returns a `logging.Logger` object.
 
@@ -111,7 +136,9 @@ def get_logger(
     non-zero ranks (and will be set to `level` on RANK==0).
     """
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger.setLevel(
+        str(level if level is not None else os.environ.get("LOG_LEVEL", "INFO")).upper()
+    )
     if rank_zero_only and ez.get_rank() != 0:
         logger.setLevel("CRITICAL")
     return logger
@@ -119,7 +146,8 @@ def get_logger(
 
 def update_rotary_pos_emb(seq_length):
     args = get_args()
-    assert args is not None
+    accelerator = get_accelerator()
+    assert args is not None and accelerator is not None
     rotary_dim = (
         args.hidden_size // args.num_attention_heads
         if args.kv_channels is None
@@ -133,7 +161,7 @@ def update_rotary_pos_emb(seq_length):
     # Wang and Komatsuzaki et al
     # https://github.com/kingoflolz/mesh-transformer-jax/
     rotary_pos_emb = RotaryEmbedding(rotary_dim, theta=args.rope_theta)(seq_length).to(
-        get_accelerator().current_device_name()
+        accelerator.current_device_name()
     )
     args.rotary_pos_emb = rotary_pos_emb
 
@@ -203,21 +231,22 @@ def average_losses_across_data_parallel_group(losses):
 
 def report_memory(name):
     """Simple GPU memory report."""
+    accelerator = get_accelerator()
+    assert accelerator is not None
     mega_bytes = 1024.0 * 1024.0
     string = name + " memory (MB)"
-    string += " | allocated: {}".format(
-        get_accelerator().memory_allocated() / mega_bytes
-    )
+    string += " | allocated: {}".format(accelerator.memory_allocated() / mega_bytes)
     string += " | max allocated: {}".format(
-        get_accelerator().max_memory_allocated() / mega_bytes
+        accelerator.max_memory_allocated() / mega_bytes
     )
-    string += " | reserved: {}".format(get_accelerator().memory_reserved() / mega_bytes)
-    string += " | max reserved: {}".format(
-        get_accelerator().max_memory_reserved() / mega_bytes
-    )
+    reserved = accelerator.memory_reserved()
+    max_reserved = accelerator.max_memory_reserved()
+    if reserved is not None:
+        string += " | reserved: {}".format(reserved / mega_bytes)
+    if max_reserved is not None:
+        string += " | max reserved: {}".format(max_reserved / mega_bytes)
     if mpu.get_data_parallel_rank() == 0:
         log.info(f"[Rank {RANK}] {string}")
-        # log.info("[Rank {}] {}".format(torch.distributed.get_rank(), string))  # , flush=True)
 
 
 def print_params_min_max_norm(optimizer, iteration):
@@ -236,19 +265,19 @@ def print_params_min_max_norm(optimizer, iteration):
                 iteration, rank, index, int(param.tensor_model_parallel)
             )
             string += "{:.6E}, {:.6E}, {:.6E}\n".format(min_, max_, norm)
-    # print(string, flush=True)
     log.info(string)
 
 
 def check_adlr_autoresume_termination(iteration, model, optimizer, opt_param_scheduler):
     """Check for autoresume signal and exit if it is received."""
     from megatron.checkpointing import save_checkpoint
+
     args = get_args()
     assert args is not None
     autoresume = get_adlr_autoresume()
     # Add barrier to ensure consistnecy.
     torch.distributed.barrier()
-    if autoresume.termination_requested():
+    if autoresume is not None and autoresume.termination_requested():
         if args.save:
             save_checkpoint(iteration, model, optimizer, opt_param_scheduler)
         print_rank_0(">>> autoresume termination request found!")
@@ -280,7 +309,7 @@ def get_ltor_masks_and_position_ids(
     attention_mask = None
     if not skip_mask:
         attention_mask = torch.tril(
-            torch.ones((att_mask_batch, seq_length, seq_length))
+            torch.ones((att_mask_batch, seq_length, seq_length), device=data.device)
         ).view(att_mask_batch, 1, seq_length, seq_length)
 
     # Loss mask.
@@ -309,7 +338,11 @@ def get_ltor_masks_and_position_ids(
             for j in range(eod_index.size()[0]):
                 i = eod_index[j]
                 # Mask attention loss.
-                if reset_attention_mask and not skip_mask:
+                if (
+                    reset_attention_mask
+                    and not skip_mask
+                    and attention_mask is not None
+                ):
                     attention_mask[b, 0, (i + 1) :, : (i + 1)] = 0
                 # Reset positions.
                 if reset_position_ids:
@@ -320,7 +353,6 @@ def get_ltor_masks_and_position_ids(
     if not skip_mask:
         assert attention_mask is not None
         attention_mask = attention_mask < 0.5
-        attention_mask = attention_mask.to(data.device)
 
     return attention_mask, loss_mask, position_ids
 
@@ -360,10 +392,7 @@ def is_rank_0():
     if torch.distributed.is_initialized():
         if torch.distributed.get_rank() == 0 or (
             is_aml()
-            and (
-                torch.distributed.get_rank()
-                    % get_accelerator().device_count()
-            ) == 0
+            and (torch.distributed.get_rank() % get_accelerator().device_count()) == 0
         ):
             return True
         else:
@@ -392,6 +421,37 @@ def get_parameters_in_billions(model):
     return approx_parameters_in_billions * gpus_per_model / (1e9)
 
 
+def num_floating_point_operations(args, batch_size):
+    # Group Query Attention.
+    # if not args.group_query_attention:
+    if not args.num_key_value_heads:
+        args.num_key_value_heads = args.num_attention_heads
+        # args.num_query_groups = args.num_attention_heads
+    # MoE.
+    # num_experts_routed_to = 1 if args.num_experts is None else args.moe_router_topk
+    num_experts_routed_to = 1 if args.num_experts is None else args.topk
+    gated_linear_multiplier = 3 / 2 if args.swiglu else 1
+    return (
+        12
+        * batch_size
+        * args.seq_length
+        * args.num_layers
+        * args.hidden_size
+        * args.hidden_size
+        * (
+            1
+            + (
+                (args.ffn_hidden_size / args.hidden_size)
+                * num_experts_routed_to
+                * gated_linear_multiplier
+            )
+            + (args.num_key_value_heads / args.num_attention_heads)
+            + (args.seq_length / args.hidden_size)
+            + (args.padded_vocab_size / (2 * args.num_layers * args.hidden_size))
+        )
+    )
+
+
 def throughput_calculator(model, args, iteration_time, total_iterations):
     batch_size = (
         args.micro_batch_size * get_num_microbatches() * args.data_parallel_size
@@ -404,36 +464,60 @@ def throughput_calculator(model, args, iteration_time, total_iterations):
 
     # flops calculator
     hidden_size = args.hidden_size
+    num_attention_heads = args.num_attention_heads
+    head_dim = hidden_size // num_attention_heads
+    ffn_hidden_size = args.ffn_hidden_size
     num_layers = args.num_layers
     vocab_size = args.padded_vocab_size
+    gqa = args.num_attention_heads // args.num_key_value_heads
+    num_experts_routed_to = args.topk
+    ffn_multiplier = 3 if args.swiglu else 2
+    macs_per_flops = 2
 
     # General TFLOPs formula (borrowed from Equation 3 in Section 5.1 of
     # https://arxiv.org/pdf/2104.04473.pdf).
-    # The factor of 4 is when used with activation check-pointing,
-    # otherwise it will be 3.
-    checkpoint_activations_factor = 3
-    if hasattr(args, "checkpoint_activations") and args.checkpoint_activations:
-        checkpoint_activations_factor = 4
-    if hasattr(args, "recompute_granularity") and (
-        args.recompute_granularity == "selective"
-        or args.recompute_granularity == "full"
-    ):
-        checkpoint_activations_factor = 4
+    # correction has been made to TFLOPs formula due to incorrect behavior
+    # observed with selective recompute when GQA not used and for all with GQA
     seq_len = args.seq_length
-    if hasattr(args, "actual_seq_length"):
+    if hasattr(args, 'actual_seq_length'):
         seq_len = args.actual_seq_length
-    flops_per_iteration = (
-        24
-        * checkpoint_activations_factor
-        * batch_size
-        * seq_len
-        * num_layers
-        * (hidden_size**2)
-    ) * (
-        1.0
-        + (seq_len / (6.0 * hidden_size))
-        + (vocab_size / (16.0 * num_layers * hidden_size))
+    pre_and_post_mha_gemm_macs = (
+        batch_size * num_layers * (1 + (2 // gqa) + 1) * (hidden_size**2) * seq_len
     )
+    mha_bgemm_macs = (
+        batch_size * num_layers * 2 * head_dim * num_attention_heads * (seq_len**2)
+    )
+    ffn_gemm_macs = (
+        batch_size
+        * num_layers
+        * ffn_multiplier
+        * ffn_hidden_size
+        * hidden_size
+        * seq_len
+        * num_experts_routed_to
+    )
+    logit_lmhead_gemm_macs = batch_size * vocab_size * hidden_size * seq_len
+
+    fwd_macs = (
+        pre_and_post_mha_gemm_macs
+        + mha_bgemm_macs
+        + ffn_gemm_macs
+        + logit_lmhead_gemm_macs
+    )
+    bwd_macs = 2 * fwd_macs
+    fwd_bwd_macs = fwd_macs + bwd_macs
+
+    if (hasattr(args, "checkpoint_activations") and args.checkpoint_activations) or (
+        hasattr(args, "recompute_granularity") and args.recompute_granularity == "full"
+    ):
+        fwd_bwd_macs += fwd_macs
+    if (
+        hasattr(args, "recompute_granularity")
+        and args.recompute_granularity == "selective"
+    ):
+        fwd_bwd_macs += mha_bgemm_macs
+
+    flops_per_iteration = fwd_bwd_macs * macs_per_flops
     tflops = flops_per_iteration / (elapsed_time_per_iter * args.world_size * (10**12))
     return samples_per_second, tflops, approx_parameters_in_billions
 
@@ -490,42 +574,54 @@ def dump_weights(preamble, iteration, model, optimizer, tensor=None):
     dp_rank = mpu.get_data_parallel_rank()
     dp_size = mpu.get_data_parallel_world_size()
     fn = f"debug-bf16-{iteration}-pp{pp_rank}-tp{tp_rank}-dp{dp_rank}-{preamble}.txt"
+
     # only care for first and last pp stages and dp0 tp0
     # if not (mpu.is_pipeline_first_stage() or mpu.is_pipeline_last_stage()):
     #    return
+
     # if not (tp_rank == 0 and dp_rank == 0):
     #    return
+
     if tensor is not None:
         orig_tensor = tensor
         if hasattr(tensor, "_hp_param"):
             numel = tensor._hp_param.numel()  # // dp_size
             tensor = tensor.flatten().narrow(0, 0, numel)
+
     # print(fn)
     with open(fn, "w") as fh:
         fh.write(f"{get_fingerprint_header()}\n")
+
         if tensor is not None:
             fh.write(f"{get_fingerprint(tensor)} tensor {tensor.shape}\n")
         else:
             for n, p in model[0].named_parameters():
                 fh.write(f"{get_fingerprint(p)} {n} {p.shape}\n")
+
+    # # until we figure out how to dump the actual fp32 values don't do this
+    # fn = f"debug-fp32-{iteration}-pp{pp_rank}-tp{tp_rank}-dp{dp_rank}-{preamble}.txt"
+    # with open(fn, "w") as fh:
+    #     fh.write(f"{get_fingerprint_header()}\n")
+    #     if tensor is not None:
+    #         tensor = orig_tensor
+    #         if hasattr(tensor, "_hp_param"):
+    #             fh.write(f"{get_fingerprint(tensor._hp_param)} tensor {tensor._hp_param.shape}\n")
+    #             #fh.write(f"{get_fingerprint(tensor._hp_grad)} tensor grad\n")
+    #         else:
+    #             fh.write(f"{get_fingerprint(tensor)} tensor {tensor.shape}\n")
+    #             #fh.write(f"{get_fingerprint(tensor.grad)} tensor grad\n")
+    #
+    #     else:
+    #         if hasattr(model[0].module.tied_modules, "embed"):
+    #             p = model[0].module.tied_modules.embed.word_embeddings.weight._hp_param
+    #             fh.write(f"{get_fingerprint(p)} module.tied_modules.embed.word_embeddings.weight._hp_param {p.shape}\n")
     return
-    # until we figure out how to dump the actual fp32 values don't do this
-    fn = f"debug-fp32-{iteration}-pp{pp_rank}-tp{tp_rank}-dp{dp_rank}-{preamble}.txt"
-    with open(fn, "w") as fh:
-        fh.write(f"{get_fingerprint_header()}\n")
-        if tensor is not None:
-            tensor = orig_tensor
-            if hasattr(tensor, "_hp_param"):
-                fh.write(
-                    f"{get_fingerprint(tensor._hp_param)} tensor {tensor._hp_param.shape}\n"
-                )
-                # fh.write(f"{get_fingerprint(tensor._hp_grad)} tensor grad\n")
-            else:
-                fh.write(f"{get_fingerprint(tensor)} tensor {tensor.shape}\n")
-                # fh.write(f"{get_fingerprint(tensor.grad)} tensor grad\n")
-        else:
-            if hasattr(model[0].module.tied_modules, "embed"):
-                p = model[0].module.tied_modules.embed.word_embeddings.weight._hp_param
-                fh.write(
-                    f"{get_fingerprint(p)} module.tied_modules.embed.word_embeddings.weight._hp_param {p.shape}\n"
-                )
+
+
+def found_kill_switch():
+    args = get_args()
+    assert args is not None
+    if args.kill_switch_file is not None and os.path.exists(args.kill_switch_file):
+        return True
+    else:
+        return False

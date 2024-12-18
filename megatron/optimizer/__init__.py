@@ -315,6 +315,15 @@ def get_megatron_optimizer(
             weight_decay=args.weight_decay,
             momentum=args.sgd_momentum
         )
+    elif str(args.optimizer).lower() == 'sophiag':
+        from .sophia import SophiaG
+        optimizer = SophiaG(
+            param_groups,
+            lr=args.lr,
+            betas=(args.sophiag_beta1, args.sophiag_beta2),
+            rho = args.sophiag_rho,
+            weight_decay=args.weight_decay
+        )
     else:
         raise TypeError(f'{args.optimizer} optimizer is not supported.')
     if args.deepspeed:

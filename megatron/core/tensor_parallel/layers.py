@@ -1,3 +1,4 @@
+# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company.
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
 # Parts of the code here are adapted from PyTorch
@@ -15,6 +16,8 @@ import torch.nn.init as init
 from torch.nn.parameter import Parameter
 
 from torch.cuda.amp import custom_fwd, custom_bwd
+
+from megatron import get_args
 
 from megatron.core.model_parallel_config import ModelParallelConfig
 
@@ -233,6 +236,11 @@ class SequenceParallelPositionEmbedding(torch.nn.Module):
     def forward(self, position_ids):
         return self.local_embeddings(position_ids - self.offset)
 
+def gradientUpdateFunction(total_input, grad_output, weight):
+    if weight.grad == None:
+        weight.grad = grad_output.t().matmul(total_input)
+    else:
+        weight.grad += grad_output.t().matmul(total_input)
 
 class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
     """See linear_with_grad_accumulation_and_async_allreduce"""
@@ -278,6 +286,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
     @staticmethod
     @custom_bwd
     def backward(ctx, grad_output):
+        args = get_args()
         input, weight = ctx.saved_tensors
         use_bias = ctx.use_bias
 
@@ -359,7 +368,13 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
         #     grad_weight = None
         # else:
         #     grad_weight = grad_output.t().matmul(total_input)
-        grad_weight = grad_output.t().matmul(total_input)
+        if args.enable_zbh1_pipeline:
+            from megatron.core.tensor_parallel.weight_grad_store import WeightGradStore
+            WeightGradStore.put(total_input, grad_output, weight, gradientUpdateFunction)
+            grad_weight = None
+        else:
+            grad_weight = grad_output.t().matmul(total_input)
+
         grad_bias = grad_output.sum(dim=0) if use_bias else None
 
         if ctx.sequence_parallel:
@@ -441,7 +456,8 @@ def linear_with_grad_accumulation_and_async_allreduce(
     ]
 
     if not linear_with_grad_accumulation_and_async_allreduce.warned:
-        if os.environ.get('CUDA_DEVICE_MAX_CONNECTIONS') != "1":
+        if get_accelerator().device_name() == "cuda" \
+            and os.environ.get('CUDA_DEVICE_MAX_CONNECTIONS') != "1":
             if sequence_parallel:
                 warnings.warn(
                     "When using sequence parallelism it is recommended to set the "
