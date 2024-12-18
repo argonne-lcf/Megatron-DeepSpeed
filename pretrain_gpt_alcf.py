@@ -585,7 +585,7 @@ def main():
             activities += [ProfilerActivity.CUDA]
         if torch.xpu.is_available():
             activities += [ProfilerActivity.XPU]
-        with profile(activities=activities) as prof:
+        with profile(activities=activities, record_shapes = True) as prof:
             model = pretrain(
                 train_valid_test_datasets_provider,
                 model_provider,
