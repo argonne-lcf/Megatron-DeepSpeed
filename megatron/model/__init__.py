@@ -13,13 +13,13 @@ if accelerator is not None and accelerator.device_name() == "xpu":
 if accelerator is not None and accelerator.device_name() == "cuda":
     from .fused_layer_norm import MixedFusedLayerNorm as LayerNorm
 
-    try:
-        from apex.normalization import MixedFusedRMSNorm as RMSNorm  # type:ignore
-
-        HAS_APEX = True
-    except Exception:
-        HAS_APEX = False
-        from .rmsnorm import RMSNorm
+#    try:
+#        from apex.normalization import MixedFusedRMSNorm as RMSNorm  # type:ignore
+#
+ #       HAS_APEX = True
+ #   except Exception:
+ #       HAS_APEX = False
+    from .rmsnorm import RMSNorm
 else:
     if hasattr(torch.xpu, "IpexRmsNorm"):
         from .fused_rmsnorm import RMSNorm
