@@ -2,11 +2,11 @@
 
 """Finetune LLAMA, Modified from pretrain_gpt.py"""
 
+import ezpz
 import torch
 import math
 from functools import partial
 from megatron import get_args
-from megatron import print_rank_0
 from megatron import get_timers
 from megatron import get_tokenizer
 from megatron.core import mpu, tensor_parallel
@@ -29,14 +29,38 @@ from torch import nn
 import torch.nn.functional as F
 from transformers import AutoTokenizer
 
+try:
+    RANK = ezpz.setup_torch('deepspeed')
+except Exception:
+    RANK = 0
+
+try:
+    import wandb
+except (ImportError, ModuleNotFoundError):
+    wandb = None
+
+logger = ezpz.get_logger(__name__)
+
+# ---- [SETUP WANDB FROM RANK 0] --------------
+WANDB_MODE = os.environ.get("WANDB_MODE", None)
+DISABLE_WANDB = WANDB_MODE is not None and str(WANDB_MODE).lower() == "disabled"
+if RANK == 0 and not DISABLE_WANDB:
+    project_name = os.environ.get(
+        "WB_PROJECT",  # look for WB_PROJECT in env
+        os.environ.get("WANDB_PROJECT", "AuroraGPT"),  # look for WANDB_PROJECT in env
+    )
+    logger.info(f"Setting up W&B from: {RANK} with {project_name}")
+    _ = ezpz.setup_wandb(project_name=project_name)
+
 
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""
 
-    print_rank_0('building GPT model ...')
-    see_memory_usage(f"Before Building Model", force=True)
+    logger.info('building GPT model ...')
+    see_memory_usage("Before Building Model", force=True)
 
     args = get_args()
+    assert args is not None
     config = core_transformer_config_from_args(args)
     with deepspeed.zero.Init(sequence_data_parallel_group=mpu.get_sequence_data_parallel_group(),
                              remote_device=None if args.remote_device == 'none' else args.remote_device,
@@ -82,7 +106,29 @@ def model_provider(pre_process=True, post_process=True):
                 pre_process=pre_process,
                 post_process=post_process
             )
-    see_memory_usage(f"After Building Model", force=True)
+    see_memory_usage("After Building Model", force=True)
+    if wandb is not None and getattr(wandb, "run", None) is not None:
+        assert wandb.run is not None
+        tbdir = args.tensorboard_dir
+        # tbdir = args.getattr('tensorboard_dir', None)
+        if tbdir is not None:
+            try:
+                logger.info(f"Patching tensorboard from {tbdir}")
+                wandb.tensorboard.patch(root_logdir=tbdir)  # type:ignore
+            except ValueError as exc:
+                logger.exception(exc)
+                logger.warning("Continuing without patching tensorboard!")
+        num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        wandb.run.config.update({"num_params": num_params})
+        if "args" not in wandb.run.config:
+            logger.info(
+                f"Updating WandB run.config: [{wandb.run.name}]({wandb.run.get_url()})"
+            )
+            try:
+                wandb.run.config.update({"args": dict(sorted(vars(args).items()))})
+            except Exception:
+                logger.error('Unable to `wandb.run.config.update({"args": vars(args)})`')
+
     return model
 
 
@@ -220,7 +266,7 @@ def loss_func(loss_mask, moe_loss, mos_loss, output_tensor):
             return loss, {'total loss': loss, 'lm loss': averaged_loss[0], 'moe loss': moe_loss, 'mos loss': mos_loss}
         elif args.kd:
             return loss, {'total loss': loss, 'lm loss': averaged_loss[0], 'moe loss': moe_loss, 'kd loss': mos_loss}
-        print_rank_0('>>> total loss: {}, lm loss {}, kd loss {}'.format(loss, averaged_loss[0], mos_loss))
+        logger.info('>>> total loss: {}, lm loss {}, kd loss {}'.format(loss, averaged_loss[0], mos_loss))
     else:
         if max(args.num_experts) <= 1:
             return loss, {'lm loss': averaged_loss[0]}
@@ -305,7 +351,7 @@ def prompt_train_valid_test_datasets_provider(train_val_test_num_samples):
     """Build train, valid, and test datasets."""
     args = get_args()
 
-    print_rank_0('> building finetune prompt datasets '
+    logger.info('> building finetune prompt datasets '
                  'for llama ...')
 
     tokenizer = get_tokenizer()

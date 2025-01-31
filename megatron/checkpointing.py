@@ -586,6 +586,7 @@ def save_lr_state_dict() -> None:
     lr_state_dict_fp = Path(args.save).joinpath(
         "lr_state_dict.yaml"
     )
+    lr_state_dict_fp.parent.mkdir(parents=True, exist_ok=True)
     log.info(f"Saving lr_state_dict to {lr_state_dict_fp.as_posix()}")
     with lr_state_dict_fp.open('w') as f:
         yaml.dump(
