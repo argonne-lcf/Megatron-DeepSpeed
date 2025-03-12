@@ -798,8 +798,17 @@ def _add_regularization_args(parser):
     group.add_argument('--adam-eps', type=float, default=1e-08,
                        help='Term added to the denominator to improve'
                        'numerical stability')
+    group.add_argument('--dshampooadamw-max-preconditioner-dim', type=int, default=8192,
+                       help='Max preconditioner dim')
+    group.add_argument('--dshampooadamw-precondition-freq', type=int, default=100,
+                       help='dshampoo preconditioner frequency')
+    group.add_argument('--dshampooadamw-use-decoupled-weight-decay', type=bool, default=True,
+                       help='dshampoo use decoupled weight decay')
+    group.add_argument('--dshampooadamw-eps', type=float, default=1e-12,
+                       help='dshampoo epsilon')
     group.add_argument('--sgd-momentum', type=float, default=0.9,
                        help='Momentum factor for sgd')
+
 
     return parser
 
@@ -966,10 +975,11 @@ def _add_training_args(parser):
             'galoreadamw8bitperlayer',
             'ipex.fusedlamb',
             'ipex.lamb',
-            'shampoo',
+            'dshampooadamw',
             'sgd',
             'sgdschedulefree',
-            'sophiag'
+            'sophiag',
+            'adopt'
         ],
         help='Optimizer function'
     )
