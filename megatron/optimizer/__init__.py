@@ -326,23 +326,24 @@ def get_megatron_optimizer(
             eps=args.adam_eps,
         )
     # ---- Shampoo ----------------------------------------
-    elif args.optimizer == 'shampoo':
+    elif str(args.optimizer).lower() == 'dshampooadamw':
         from distributed_shampoo.distributed_shampoo import DistributedShampoo
         from distributed_shampoo.shampoo_types import AdamGraftingConfig
         optimizer = DistributedShampoo(
-            model.parameters(),
-            lr=0.001,
-            betas=(0.9, 0.999),
-            epsilon=1e-12,
-            weight_decay=1e-05,
-            max_preconditioner_dim=8192,
-            precondition_frequency=100,
-            use_decoupled_weight_decay=True,
+            param_groups,
+            lr=args.lr,
+            betas=(args.adam_beta1, args.adam_beta2),
+            epsilon=args.dshampooadamw_eps,
+            weight_decay=args.weight_decay,
+            max_preconditioner_dim=args.dshampooadamw_max_preconditioner_dim,
+            precondition_frequency=args.dshampooadamw_precondition_freq,
+            use_decoupled_weight_decay=args.dshampooadamw_use_decoupled_weight_decay,
             grafting_config=AdamGraftingConfig(
-                beta2=0.999,
-                epsilon=1e-08,
+            beta2=args.adam_beta2,
+            epsilon=args.adam_eps,
             ),
         )
+    #--- sgd -------------------------------------------------
     elif args.optimizer == 'sgd':
         optimizer = torch.optim.SGD(
             param_groups,
@@ -350,6 +351,7 @@ def get_megatron_optimizer(
             weight_decay=args.weight_decay,
             momentum=args.sgd_momentum
         )
+    #--- sophiag -----------------------------------------------
     elif str(args.optimizer).lower() == 'sophiag':
         from .sophia import SophiaG
         optimizer = SophiaG(
@@ -358,6 +360,30 @@ def get_megatron_optimizer(
             betas=(args.sophiag_beta1, args.sophiag_beta2),
             rho = args.sophiag_rho,
             weight_decay=args.weight_decay
+        )
+    #--- adopt -----------------------------------------------
+    elif str(args.optimizer).lower() == 'adopt':
+        from .adopt import ADOPT
+        optimizer = ADOPT(
+            param_groups,
+            lr=args.lr,
+            betas=(args.adam_beta1, args.adam_beta2),
+            eps = args.adam_eps,
+            weight_decay=args.weight_decay
+        )
+     #--- muon  -----------------------------------------------
+    elif str(args.optimizer).lower() == 'muon':
+        from .muon import Muon
+
+        optimizer = Muon(
+            param_groups,
+            lr=args.lr,
+            wd=args.weight_decay,
+            momentum=args.muon_momentum,
+            nesterov=args.muon_nesterov,
+            ns_steps=args.muon_ns_steps,
+            adamw_betas=(args.muonadamw_beta1,args.muonadamw_beta2),
+            adamw_eps=args.muonadamw_eps
         )
     else:
         raise TypeError(f'{args.optimizer} optimizer is not supported.')

@@ -688,7 +688,7 @@ setParams() {
     export NUM_KV_HEAD=${NUM_KV_HEAD:-8}             # GROUP ATTENTION
     export FFN_HIDDEN_SIZE=${FFN_HIDDEN_SIZE:-11008} # FFN HIDDEN SIZE
     # +---[Run Settings]------------------------------------------------------+
-    export SEQ=${SEQ:-4096}                                                               # SEQ_LEN: 4096
+    export SEQ=${SEQ:-2048}                                                               # SEQ_LEN: 4096
     export ZERO_STAGE=${ZERO_STAGE:-1}                                                    # ZERO OFFLOADING STAGE
     export MICRO_BATCH=${MICRO_BATCH:-1}                                                  # MICRO BATCH SIZE
     export GRAD_ACC_STEPS=${GRAD_ACC_STEPS:-1}                                            # GRADIENT ACCUMULATION STEPS
@@ -703,7 +703,7 @@ setParams() {
         printf "TRAIN_TOKENS=%s (=%sB tokens)\n" "${TRAIN_TOKENS}" "$((TRAIN_TOKENS / 10 ** 9))"
         printf "TRAIN_ITERS=%s\n" "${TRAIN_ITERS}"
     elif [[ -z "${TRAIN_ITERS:-${TRAIN_ITER:-}}" ]]; then
-        export TRAIN_TOKENS=${TRAIN_TOKENS:-2000000000000}
+        export TRAIN_TOKENS=${TRAIN_TOKENS:-10000000000}
         export TRAIN_ITERS=$((TRAIN_TOKENS / SEQ / GLOBAL_BATCH))
         printf "TRAIN_TOKENS=%s (=%sB tokens)\n" "${TRAIN_TOKENS}" "$((TRAIN_TOKENS / 10 ** 9))"
         printf "TRAIN_ITERS=%s\n" "${TRAIN_ITERS}"
