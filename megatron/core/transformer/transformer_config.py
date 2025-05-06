@@ -214,10 +214,11 @@ class TransformerConfig(ModelParallelConfig):
         if self.init_method is None:
             self.init_method = init_method_normal(self.init_method_std)
 
-        if self.scaled_word_embedding_init:
-            self.world_embedding_init_method = init_method_normal(self.word_embedding_init_std)
-        else:
-            self.world_embedding_init_method = self.init_method
+        if self.world_embedding_init_method is None:
+            if self.scaled_word_embedding_init:
+                self.world_embedding_init_method = init_method_normal(self.word_embedding_init_std)
+            else:
+                self.world_embedding_init_method = self.init_method
         
         if self.output_layer_init_method is None:
             self.output_layer_init_method = scaled_init_method_normal(self.init_method_std, self.num_layers)
