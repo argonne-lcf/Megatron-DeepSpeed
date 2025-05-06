@@ -1052,12 +1052,11 @@ def _add_initialization_args(parser):
     group.add_argument('--init-method-std', type=float, default=0.02,
                        help='Standard deviation of the zero mean normal '
                        'distribution used for weight initialization.')
-    group.add_argument('--scaled-word-embedding-init', action='store_true',
-                       help='Standard deviation of the zero mean normal '
-                       'distribution used for weight initialization.')
+    group.add_argument('--adjust-word-embedding-init', action='store_true',
+                       help='Use different initialization for word embedding weights')
     group.add_argument('--word-embedding-init-std', type=float, default=0.02,
                        help='Standard deviation of the zero mean normal '
-                       'distribution used for weight initialization.')
+                       'distribution used for word embedding weight initialization.')
     group.add_argument('--init-method-xavier-uniform', action='store_true',
                        help='Enable Xavier uniform parameter initialization')
 
