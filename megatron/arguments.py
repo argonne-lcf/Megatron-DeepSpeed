@@ -46,6 +46,7 @@ def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     parser = _add_transformer_engine_args(parser)
     parser = _add_retro_args(parser)
     parser = _add_profiler_args(parser)
+    parser = _add_mup_args(parser)
 
     # Custom arguments.
     if extra_args_provider is not None:
@@ -499,6 +500,43 @@ def core_transformer_config_from_args(args):
         kw_args['scaled_init_method'] = torch.nn.init.xavier_uniform_
 
     return TransformerConfig(**kw_args)
+
+def _add_mup_args(parser):
+    group = parser.add_argument_group(title='MuP')
+
+    group.add_argument('--enable-mup', type=bool, default=False, 
+                       help='Set True to use MuP', dest='enable-mup')
+    
+
+    group.add_argument('--mup-coord-check', type=bool, default=False, 
+                       help='Perform coordinate check for MuP', dest='mup-coord-check')
+
+    group.add_argument('--mup-input-weights-scale', type=float, default=1.0, 
+                       help='Scalar to multiply initial weights', dest='mup-input-weights-scale')
+    
+
+    group.add_argument('--mup-hidden-weights-scale', type=float, default=1.0, 
+                       help='Scalar to multiply hidden weights', dest='mup-hidden-weights-scale')
+
+    group.add_argument('--mup-output-weights-scale', type=float, default=1.0, 
+                       help='Scalar to multiply output weights', dest='mup-output-weights-scale')
+    
+
+    group.add_argument('--mup-input-lr-scale', type=float, default=1.0, 
+                       help='To scale learning rate for input weights', dest='mup-input-lr-scale')
+
+
+    group.add_argument('--mup-hidden-lr-scale', type=float, default=1.0, 
+                       help='To scale learning rate for hidden weights', dest='mup-hidden-lr-scale')
+    
+
+    group.add_argument('--mup-output-lr-scale', type=float, default=1.0, 
+                       help='To scale learning rate for output weights', dest='mup-output-lr-scale')
+
+    return parser
+
+
+
 
 def _add_transformer_engine_args(parser):
     group = parser.add_argument_group(title='Transformer-Engine')
