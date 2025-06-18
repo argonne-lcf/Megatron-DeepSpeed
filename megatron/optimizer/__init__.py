@@ -12,15 +12,16 @@ from .optimizer import Float16OptimizerWithFloat16Params, FP32Optimizer
 
 
 import ezpz as ez
+
 RANK = ez.get_rank()
 
 
 def get_param_groups(
-        modules: Union[torch.nn.Module, Iterable[torch.nn.Module]],
-        no_weight_decay_cond: Callable[[str, torch.Tensor], bool],
-        scale_lr_cond: Callable[[str, torch.Tensor], bool],
-        lr_mult: Any,
-        use_galore: bool = False,
+    modules: Union[torch.nn.Module, Iterable[torch.nn.Module]],
+    no_weight_decay_cond: Callable[[str, torch.Tensor], bool],
+    scale_lr_cond: Callable[[str, torch.Tensor], bool],
+    lr_mult: Any,
+    use_galore: bool = False,
 ):
     """
     Creates param groups (regularized vs non) based on:
@@ -92,37 +93,58 @@ def get_param_groups(
 
     param_groups = []
     if len(wd_no_scale_lr):
-        param_groups.append({'name': 'wd_no_scale_lr', 'params': wd_no_scale_lr, 'wd_mult': 1.0, 'lr_mult': 1.0})
+        param_groups.append(
+            {
+                "name": "wd_no_scale_lr",
+                "params": wd_no_scale_lr,
+                "wd_mult": 1.0,
+                "lr_mult": 1.0,
+            }
+        )
     if len(wd_scale_lr):
-        param_groups.append({'name': 'wd_scale_lr', 'params': wd_scale_lr, 'wd_mult': 1.0, 'lr_mult': lr_mult})
+        param_groups.append(
+            {
+                "name": "wd_scale_lr",
+                "params": wd_scale_lr,
+                "wd_mult": 1.0,
+                "lr_mult": lr_mult,
+            }
+        )
     if len(no_wd_no_scale_lr):
-        param_groups.append({'name': 'no_wd_no_scale_lr', 'params': no_wd_no_scale_lr, 'wd_mult': 0.0, 'lr_mult': 1.0})
+        param_groups.append(
+            {
+                "name": "no_wd_no_scale_lr",
+                "params": no_wd_no_scale_lr,
+                "wd_mult": 0.0,
+                "lr_mult": 1.0,
+            }
+        )
     if len(no_wd_scale_lr):
-        param_groups.append({'name': 'no_wd_scale_lr', 'params': no_wd_scale_lr, 'wd_mult': 0.0, 'lr_mult': lr_mult})
+        param_groups.append(
+            {
+                "name": "no_wd_scale_lr",
+                "params": no_wd_scale_lr,
+                "wd_mult": 0.0,
+                "lr_mult": lr_mult,
+            }
+        )
 
     return param_groups
 
 
 def get_megatron_optimizer(
-        model,
-        no_weight_decay_cond=None,
-        scale_lr_cond=None,
-        lr_mult=1.0
+    model, no_weight_decay_cond=None, scale_lr_cond=None, lr_mult=1.0
 ):
     args = get_args()
     assert args is not None
 
     # Base optimizer.
-    param_groups = get_param_groups(
-        model,
-        no_weight_decay_cond,
-        scale_lr_cond,
-        lr_mult
-    )
+    param_groups = get_param_groups(model, no_weight_decay_cond, scale_lr_cond, lr_mult)
     if args.create_moe_param_group:
         from deepspeed.moe.utils import (
-            split_params_into_different_moe_groups_for_optimizer
+            split_params_into_different_moe_groups_for_optimizer,
         )
+
         param_groups = split_params_into_different_moe_groups_for_optimizer(
             param_groups
         )
@@ -130,11 +152,12 @@ def get_megatron_optimizer(
     optimizer = None
     # ---- CPU Optimizer --------------------------------------
     if args.cpu_optimizer:
-        assert args.optimizer == 'adam', 'CPU offloading is for Adam'
+        assert args.optimizer == "adam", "CPU offloading is for Adam"
         if args.cpu_torch_adam:
             cpu_adam_optimizer = torch.optim.AdamW
         else:
             from deepspeed.ops.adam import DeepSpeedCPUAdam
+
             cpu_adam_optimizer = DeepSpeedCPUAdam
         optimizer = cpu_adam_optimizer(
             param_groups,
@@ -144,10 +167,11 @@ def get_megatron_optimizer(
             eps=args.adam_eps,
         )
     # ---- Adam --------------------------------------
-    elif args.optimizer == 'adam':
+    elif args.optimizer == "adam":
         if args.ds_fused_adam:
             # global Adam
             from deepspeed.ops.adam import FusedAdam
+
             Adam = FusedAdam
         else:
             Adam = torch.optim.Adam
@@ -156,35 +180,40 @@ def get_megatron_optimizer(
             lr=args.lr,
             weight_decay=args.weight_decay,
             betas=(args.adam_beta1, args.adam_beta2),
-            eps=args.adam_eps
+            eps=args.adam_eps,
         )
     # ---- apex.Adam --------------------------------------------
-    elif str(args.optimizer).lower() == 'apex.adam':
-        assert get_accelerator().device_name() == 'cuda'
+    elif str(args.optimizer).lower() == "apex.adam":
+        assert get_accelerator().device_name() == "cuda"
         from apex.optimizers import FusedAdam as Adam
+
         optimizer = Adam(
             param_groups,
             lr=args.lr,
             weight_decay=args.weight_decay,
             betas=(args.adam_beta1, args.adam_beta2),
-            eps=args.adam_eps
+            eps=args.adam_eps,
         )
     # ---- Adam8Bit --------------------------------------
     elif args.optimizer.lower() == "adam8bit":
         import bitsandbytes as bnb
-        optimizer = bnb.optim.Adam8bit(param_groups, lr=args.lr, weight_decay=args.weight_decay)
+
+        optimizer = bnb.optim.Adam8bit(
+            param_groups, lr=args.lr, weight_decay=args.weight_decay
+        )
     # ---- AdamW --------------------------------------
-    elif str(args.optimizer).lower() == 'adamw':
+    elif str(args.optimizer).lower() == "adamw":
         optimizer = torch.optim.AdamW(
             param_groups,
             lr=args.lr,
             weight_decay=args.weight_decay,
             betas=(args.adam_beta1, args.adam_beta2),
-            eps=args.adam_eps
+            eps=args.adam_eps,
         )
     # ---- AdamW: ScheduleFree -------------------------------------
-    elif str(args.optimizer).lower() == 'adamwschedulefree':
+    elif str(args.optimizer).lower() == "adamwschedulefree":
         import schedulefree
+
         optimizer = schedulefree.AdamWScheduleFree(
             param_groups,
             lr=args.lr,
@@ -198,7 +227,9 @@ def get_megatron_optimizer(
     elif args.optimizer.lower() == "galore_adamw":
         from galore_torch import GaLoreAdamW
         # redefine way to call galore_adamw
-        optimizer = GaLoreAdamW(param_groups, lr=args.lr, weight_decay=args.weight_decay)
+        optimizer = GaLoreAdamW(
+            param_groups, lr=args.lr, weight_decay=args.weight_decay
+        )
     # elif args.optimizer.lower() == "galore_adamw":
     #     from galore_torch import GaLoreAdamW
     #     # redefine way to call galore_adamw
@@ -206,21 +237,39 @@ def get_megatron_optimizer(
     # ---- AdamW: GaloRe 8Bit --------------------------------------
     elif args.optimizer.lower() == "galore_adamw8bit":
         from galore_torch import GaLoreAdamW8bit
-        optimizer = GaLoreAdamW8bit(param_groups, lr=args.lr, weight_decay=args.weight_decay)
+
+        optimizer = GaLoreAdamW8bit(
+            param_groups, lr=args.lr, weight_decay=args.weight_decay
+        )
     # ---- AdamW8bitPerLayer: GaloRE ----------------------------
-    elif args.optimizer.lower() == 'galore_adamw8bit_per_layer':
+    elif args.optimizer.lower() == "galore_adamw8bit_per_layer":
         from galore_torch import GaLoreAdamW8bit
         # TODO: seems scheduler call twice in one update step, need to check, for now double the num_training_steps, warmup_steps and update_proj_gap
         optimizer_dict = {}
         for p in model.parameters():
             if p.requires_grad:
                 if id(p) in id_galore_params:
-                    optimizer_dict[p] = GaLoreAdamW8bit([{'params': [p], 'rank': args.rank, 'update_proj_gap': args.update_proj_gap * 2, 'scale': args.galore_scale, 'proj_type': args.proj_type}], lr=args.lr, weight_decay=args.weight_decay)
+                    optimizer_dict[p] = GaLoreAdamW8bit(
+                        [
+                            {
+                                "params": [p],
+                                "rank": args.rank,
+                                "update_proj_gap": args.update_proj_gap * 2,
+                                "scale": args.galore_scale,
+                                "proj_type": args.proj_type,
+                            }
+                        ],
+                        lr=args.lr,
+                        weight_decay=args.weight_decay,
+                    )
                 else:
-                    optimizer_dict[p] = bnb.optim.Adam8bit([p], lr=args.lr, weight_decay=args.weight_decay)
+                    optimizer_dict[p] = bnb.optim.Adam8bit(
+                        [p], lr=args.lr, weight_decay=args.weight_decay
+                    )
         # get scheduler dict
         scheduler_dict = {}
         from galore_torch.peft_pretraining import training_utils
+
         for p in model.parameters():
             if p.requires_grad:
                 scheduler_dict[p] = training_utils.get_scheculer(
@@ -232,11 +281,12 @@ def get_megatron_optimizer(
                 )
 
         def optimizer_hook(p):
-            if p.grad is None: 
+            if p.grad is None:
                 return
             optimizer_dict[p].step()
             optimizer_dict[p].zero_grad()
             scheduler_dict[p].step()
+
         # Register the hook onto every parameter
         for p in model.parameters():
             if p.requires_grad:
@@ -245,6 +295,7 @@ def get_megatron_optimizer(
     # ---- AdaFactor --------------------------------------
     elif args.optimizer.lower() == "adafactor":
         import transformers
+
         args.beta1 = None if args.beta1 == 0.0 else args.beta1
         optimizer = transformers.optimization.Adafactor(
             param_groups,
@@ -261,6 +312,7 @@ def get_megatron_optimizer(
     # ---- GaLore: Adafactor adafactor ------------------------------------
     elif args.optimizer.lower() == "galore_adafactor":
         from galore_torch import GaLoreAdafactor
+
         args.beta1 = None if args.beta1 == 0.0 else args.beta1
         optimizer = GaLoreAdafactor(
             param_groups,
@@ -275,17 +327,19 @@ def get_megatron_optimizer(
             warmup_init=False,
         )
     # ---- Apex: sgd ---------------------------------------------
-    elif str(args.optimizer).lower() == 'apex.sgd':
+    elif str(args.optimizer).lower() == "apex.sgd":
         from apex.optimizers import FusedSGD as SGD
+
         optimizer = SGD(
             param_groups,
             lr=args.lr,
             weight_decay=args.weight_decay,
-            momentum=args.sgd_momentum
+            momentum=args.sgd_momentum,
         )
     # ---- ScheduleFree: SGD -------------------------------
-    elif str(args.optimizer).lower() == 'sgdschedulefree':
+    elif str(args.optimizer).lower() == "sgdschedulefree":
         import schedulefree
+
         optimizer = schedulefree.SGDScheduleFree(
             param_groups,
             lr=args.lr,
@@ -295,8 +349,9 @@ def get_megatron_optimizer(
             foreach=args.schedulefree_for_each,
         )
     # ---- Lamb: Ipex --------------------------------------------
-    elif str(args.optimizer) == 'ipex.lamb':
+    elif str(args.optimizer) == "ipex.lamb":
         from intel_extension_for_pytorch.optim._lamb import Lamb
+
         optimizer = Lamb(
             param_groups,
             lr=args.lr,
@@ -305,8 +360,9 @@ def get_megatron_optimizer(
             eps=args.adam_eps,
         )
     # ---- Lamb(Fused): Ipex ----------------------------------------
-    elif str(args.optimizer) == 'ipex.fusedlamb':
+    elif str(args.optimizer) == "ipex.fusedlamb":
         from intel_extension_for_pytorch.optim._lamb import Lamb
+
         optimizer = Lamb(
             param_groups,
             lr=args.lr,
@@ -316,8 +372,9 @@ def get_megatron_optimizer(
             fused=True,
         )
     # ---- Lamb(Fused): DeepSpeed ------------------------------------------
-    elif str(args.optimizer).lower() == 'ds.fusedlamb':
+    elif str(args.optimizer).lower() == "ds.fusedlamb":
         from deepspeed.ops.lamb import FusedLamb
+
         optimizer = FusedLamb(
             param_groups,
             lr=args.lr,
@@ -326,9 +383,10 @@ def get_megatron_optimizer(
             eps=args.adam_eps,
         )
     # ---- Shampoo ----------------------------------------
-    elif args.optimizer == 'shampoo':
+    elif args.optimizer == "shampoo":
         from distributed_shampoo.distributed_shampoo import DistributedShampoo
         from distributed_shampoo.shampoo_types import AdamGraftingConfig
+
         optimizer = DistributedShampoo(
             model.parameters(),
             lr=0.001,
@@ -343,24 +401,25 @@ def get_megatron_optimizer(
                 epsilon=1e-08,
             ),
         )
-    elif args.optimizer == 'sgd':
+    elif args.optimizer == "sgd":
         optimizer = torch.optim.SGD(
             param_groups,
             lr=args.lr,
             weight_decay=args.weight_decay,
-            momentum=args.sgd_momentum
+            momentum=args.sgd_momentum,
         )
-    elif str(args.optimizer).lower() == 'sophiag':
+    elif str(args.optimizer).lower() == "sophiag":
         from .sophia import SophiaG
+
         optimizer = SophiaG(
             param_groups,
             lr=args.lr,
             betas=(args.sophiag_beta1, args.sophiag_beta2),
-            rho = args.sophiag_rho,
-            weight_decay=args.weight_decay
+            rho=args.sophiag_rho,
+            weight_decay=args.weight_decay,
         )
     else:
-        raise TypeError(f'{args.optimizer} optimizer is not supported.')
+        raise TypeError(f"{args.optimizer} optimizer is not supported.")
     assert optimizer is not None
     if args.deepspeed:
         return optimizer
@@ -393,22 +452,26 @@ def get_megatron_optimizer(
                     growth_factor=2.0,
                     backoff_factor=0.5,
                     growth_interval=args.loss_scale_window,
-                    hysteresis=args.hysteresis)
+                    hysteresis=args.hysteresis,
+                )
         # Megatron optimizer.
         opt_ty = (
-                DistributedOptimizer if args.use_distributed_optimizer 
-                else Float16OptimizerWithFloat16Params
+            DistributedOptimizer
+            if args.use_distributed_optimizer
+            else Float16OptimizerWithFloat16Params
         )
-        return opt_ty(optimizer,
-                      args.clip_grad,
-                      args.log_num_zeros_in_grad,
-                      params_have_main_grad,
-                      args.use_contiguous_buffers_in_local_ddp,
-                      args.fp16,
-                      args.bf16,
-                      args.params_dtype,
-                      grad_scaler,
-                      model)
+        return opt_ty(
+            optimizer,
+            args.clip_grad,
+            args.log_num_zeros_in_grad,
+            params_have_main_grad,
+            args.use_contiguous_buffers_in_local_ddp,
+            args.fp16,
+            args.bf16,
+            args.params_dtype,
+            grad_scaler,
+            model,
+        )
     # FP32.
     return FP32Optimizer(
         optimizer,
@@ -416,5 +479,5 @@ def get_megatron_optimizer(
         args.log_num_zeros_in_grad,
         params_have_main_grad,
         args.use_contiguous_buffers_in_local_ddp,
-        model
+        model,
     )

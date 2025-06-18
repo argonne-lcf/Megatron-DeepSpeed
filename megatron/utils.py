@@ -63,6 +63,7 @@ else:
     from functools import wraps
 
     class Profile(object):
+
         def __init__(
             self, cat, name=None, epoch=None, step=None, image_idx=None, image_size=None
         ):
@@ -98,6 +99,7 @@ else:
             return
 
     class dftracer(object):
+
         def __init__(
             self,
         ):
@@ -479,7 +481,7 @@ def throughput_calculator(model, args, iteration_time, total_iterations):
     # correction has been made to TFLOPs formula due to incorrect behavior
     # observed with selective recompute when GQA not used and for all with GQA
     seq_len = args.seq_length
-    if hasattr(args, 'actual_seq_length'):
+    if hasattr(args, "actual_seq_length"):
         seq_len = args.actual_seq_length
     pre_and_post_mha_gemm_macs = (
         batch_size * num_layers * (1 + (2 // gqa) + 1) * (hidden_size**2) * seq_len

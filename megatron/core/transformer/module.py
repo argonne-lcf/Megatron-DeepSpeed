@@ -16,7 +16,7 @@ _BF16_TYPES = (torch.BFloat16Tensor, torch.cuda.BFloat16Tensor)
 
 
 def param_is_not_shared(param):
-    return not hasattr(param, 'shared') or not param.shared
+    return not hasattr(param, "shared") or not param.shared
 
 
 class MegatronModule(torch.nn.Module):
@@ -28,7 +28,7 @@ class MegatronModule(torch.nn.Module):
         super().__init__()
         self.config = config
 
-    def state_dict_for_save_checkpoint(self, prefix='', keep_vars=False):
+    def state_dict_for_save_checkpoint(self, prefix="", keep_vars=False):
         """Use this function to override the state dict for
         saving checkpoints."""
         return self.state_dict(prefix=prefix, keep_vars=keep_vars)
@@ -74,6 +74,7 @@ def float16_to_fp32(val):
 
 
 class Float16Module(MegatronModule):
+
     def __init__(self, config: TransformerConfig, module: torch.nn.Module):
         super(Float16Module, self).__init__(config)
         self.config = config
@@ -81,19 +82,19 @@ class Float16Module(MegatronModule):
         self.bf16 = config.bf16
 
         if self.fp16:
-            self.add_module('module', module.half())
+            self.add_module("module", module.half())
 
             def float16_convertor(val):
                 return val.half()
 
         elif self.bf16:
-            self.add_module('module', module.bfloat16())
+            self.add_module("module", module.bfloat16())
 
             def float16_convertor(val):
                 return val.bfloat16()
 
         else:
-            raise Exception('Either config.fp16 or config.bf16 should be True.')
+            raise Exception("Either config.fp16 or config.bf16 should be True.")
 
         self.float16_convertor = float16_convertor
 
@@ -108,11 +109,13 @@ class Float16Module(MegatronModule):
             outputs = float16_to_fp32(outputs)
         return outputs
 
-    def state_dict(self, destination=None, prefix='', keep_vars=False):
+    def state_dict(self, destination=None, prefix="", keep_vars=False):
         return self.module.state_dict(prefix=prefix, keep_vars=keep_vars)
 
-    def state_dict_for_save_checkpoint(self, prefix='', keep_vars=False):
-        return self.module.state_dict_for_save_checkpoint(prefix=prefix, keep_vars=keep_vars)
+    def state_dict_for_save_checkpoint(self, prefix="", keep_vars=False):
+        return self.module.state_dict_for_save_checkpoint(
+            prefix=prefix, keep_vars=keep_vars
+        )
 
     def load_state_dict(self, state_dict, strict=True):
         self.module.load_state_dict(state_dict, strict=strict)

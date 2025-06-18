@@ -19,7 +19,9 @@ class GPTEmbedding(MegatronModule):
         embedding_dropout_prob float): dropout probability for embeddings
     """
 
-    def __init__(self, config: TransformerConfig, vocab_size: int, max_sequence_length: int):
+    def __init__(
+        self, config: TransformerConfig, vocab_size: int, max_sequence_length: int
+    ):
         super().__init__(config=config)
 
         self.config: TransformerConfig = config
@@ -31,14 +33,16 @@ class GPTEmbedding(MegatronModule):
             num_embeddings=self.vocab_size,
             embedding_dim=self.config.hidden_size,
             init_method=self.config.init_method,
-            config=self.config
+            config=self.config,
         )
         # @jcasper are these keys needed?
-        self._word_embeddings_key = 'word_embeddings'
+        self._word_embeddings_key = "word_embeddings"
 
         # Position embedding (serial).
-        self.position_embeddings = torch.nn.Embedding(self.max_sequence_length, self.config.hidden_size)
-        self._position_embeddings_key = 'position_embeddings'
+        self.position_embeddings = torch.nn.Embedding(
+            self.max_sequence_length, self.config.hidden_size
+        )
+        self._position_embeddings_key = "position_embeddings"
 
         # Initialize the position embeddings.
         if self.config.perform_initialization:
@@ -77,13 +81,15 @@ class GPTEmbedding(MegatronModule):
 
         return embeddings
 
-    def state_dict_for_save_checkpoint(self, prefix='', keep_vars=False):
+    def state_dict_for_save_checkpoint(self, prefix="", keep_vars=False):
         """For easy load."""
 
         state_dict_ = {}
-        state_dict_[self._word_embeddings_key] = self.word_embeddings.state_dict(prefix=prefix, keep_vars=keep_vars)
-        state_dict_[self._position_embeddings_key] = self.position_embeddings.state_dict(
+        state_dict_[self._word_embeddings_key] = self.word_embeddings.state_dict(
             prefix=prefix, keep_vars=keep_vars
+        )
+        state_dict_[self._position_embeddings_key] = (
+            self.position_embeddings.state_dict(prefix=prefix, keep_vars=keep_vars)
         )
 
         return state_dict_
@@ -98,8 +104,8 @@ class GPTEmbedding(MegatronModule):
             # for backward compatibility.
             state_dict_ = {}
             for key in state_dict.keys():
-                if 'word_embeddings' in key:
-                    state_dict_[key.split('word_embeddings.')[1]] = state_dict[key]
+                if "word_embeddings" in key:
+                    state_dict_[key.split("word_embeddings.")[1]] = state_dict[key]
         self.word_embeddings.load_state_dict(state_dict_, strict=strict)
 
         # Position embedding.
@@ -109,6 +115,6 @@ class GPTEmbedding(MegatronModule):
             # for backward compatibility.
             state_dict_ = {}
             for key in state_dict.keys():
-                if 'position_embeddings' in key:
-                    state_dict_[key.split('position_embeddings.')[1]] = state_dict[key]
+                if "position_embeddings" in key:
+                    state_dict_[key.split("position_embeddings.")[1]] = state_dict[key]
         self.position_embeddings.load_state_dict(state_dict_, strict=strict)

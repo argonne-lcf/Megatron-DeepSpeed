@@ -229,6 +229,7 @@ class IndexedDataset(torch.utils.data.Dataset):
 
 
 class IndexedCachedDataset(IndexedDataset):
+
     def __init__(self, path):
         super().__init__(path)
         self.cache = None
@@ -395,12 +396,14 @@ def get_pointers_with_total(sizes, elemsize, dtype):
 
 
 class MMapIndexedDataset(torch.utils.data.Dataset):
+
     class Index(object):
         _HDR_MAGIC = b"MMIDIDX\x00\x00"
 
         @classmethod
         def writer(cls, path, dtype):
             class _Writer(object):
+
                 def __enter__(self):
                     self._file = open(path, "wb")
 
@@ -626,6 +629,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
 
 
 class MMapIndexedDatasetBuilder(object):
+
     def __init__(self, out_file, dtype=np.int64):
         self._data_file = open(out_file, "wb")
         self._dtype = dtype

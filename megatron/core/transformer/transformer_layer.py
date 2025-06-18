@@ -11,6 +11,7 @@ from megatron.core.transformer.mlp import MLP
 from megatron.core.utils import make_viewless_tensor
 from megatron.core.transformer.custom_layers.transformer_engine import TELayerNorm
 
+
 class TransformerLayer(MegatronModule):
     """A single transformer layer.
 
@@ -19,7 +20,10 @@ class TransformerLayer(MegatronModule):
     """
 
     def __init__(
-        self, config: TransformerConfig, layer_number: int = 1, self_attn_mask_type=AttnMaskType.padding,
+        self,
+        config: TransformerConfig,
+        layer_number: int = 1,
+        self_attn_mask_type=AttnMaskType.padding,
     ):
         super().__init__(config=config)
         self.config: TransformerConfig = config
@@ -65,13 +69,17 @@ class TransformerLayer(MegatronModule):
         self.bias_dropout_add_exec_handler = torch.enable_grad
 
         self.bias_dropout_add_func = get_bias_dropout_add(
-            self.training,
-            self.config.bias_dropout_fusion
+            self.training, self.config.bias_dropout_fusion
         )
 
     # TODO: decide how to do inference_params
     def forward(
-        self, hidden_states, attention_mask, encoder_output=None, enc_dec_attn_mask=None, inference_params=None
+        self,
+        hidden_states,
+        attention_mask,
+        encoder_output=None,
+        enc_dec_attn_mask=None,
+        inference_params=None,
     ):
         # hidden_states: [s, b, h]
 
@@ -117,6 +125,8 @@ class TransformerLayer(MegatronModule):
         # won't result in memory savings (like the data loader, or
         # p2p_communication), it serves to document the origin of this
         # 'view' tensor.
-        output = make_viewless_tensor(inp=output, requires_grad=output.requires_grad, keep_graph=True)
+        output = make_viewless_tensor(
+            inp=output, requires_grad=output.requires_grad, keep_graph=True
+        )
 
         return output

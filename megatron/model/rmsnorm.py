@@ -10,9 +10,8 @@ from torch.nn.parameter import Parameter
 
 # Taken from facebookresearch/llama
 class RMSNorm(torch.nn.Module):
-    def __init__(
-        self, dim: int, eps: float = 1e-6, sequence_parallel: bool = False
-    ):
+
+    def __init__(self, dim: int, eps: float = 1e-6, sequence_parallel: bool = False):
         super().__init__()
         self.eps = eps
         init_device = None

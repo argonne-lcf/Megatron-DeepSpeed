@@ -422,9 +422,9 @@ def get_model(
         mpu.get_pipeline_model_parallel_world_size() > 1
         and args.virtual_pipeline_model_parallel_size is not None
     ):
-        assert model_type != ModelType.encoder_and_decoder, (
-            "Interleaved schedule not supported for model with both encoder and decoder"
-        )
+        assert (
+            model_type != ModelType.encoder_and_decoder
+        ), "Interleaved schedule not supported for model with both encoder and decoder"
         model = []
         for i in range(args.virtual_pipeline_model_parallel_size):
             mpu.set_virtual_pipeline_model_parallel_rank(i)
@@ -443,9 +443,9 @@ def get_model(
         add_decoder = True
         if model_type == ModelType.encoder_and_decoder:
             if mpu.get_pipeline_model_parallel_world_size() > 1:
-                assert args.pipeline_model_parallel_split_rank is not None, (
-                    "Split rank needs to be specified for model with both encoder and decoder"
-                )
+                assert (
+                    args.pipeline_model_parallel_split_rank is not None
+                ), "Split rank needs to be specified for model with both encoder and decoder"
                 rank = mpu.get_pipeline_model_parallel_rank()
                 split_rank = args.pipeline_model_parallel_split_rank
                 world_size = mpu.get_pipeline_model_parallel_world_size()
@@ -471,9 +471,9 @@ def get_model(
     # Disallow training and inference with Transformer Engine
     # for non-GPT models
     args.allow_transformer_engine = all([type(m) == GPTModel for m in model])
-    assert args.allow_transformer_engine or args.transformer_impl == "local", (
-        "Transformer Engine is only approved for GPT models"
-    )
+    assert (
+        args.allow_transformer_engine or args.transformer_impl == "local"
+    ), "Transformer Engine is only approved for GPT models"
 
     # Set tensor model parallel attributes if not set.
     # Only parameters that are already tensor model parallel have these
@@ -623,9 +623,9 @@ def load_model_weights_only(model_provider_func):
             model=model[0], config=args.deepspeed_config_dict
         )
 
-        assert not isinstance(model, deepspeed.PipelineEngine), (
-            "Weight loading only mode is not supported in pipeline parallelism yet."
-        )
+        assert not isinstance(
+            model, deepspeed.PipelineEngine
+        ), "Weight loading only mode is not supported in pipeline parallelism yet."
         model = [model]
     print_datetime("before load checkpoint")
     if args.load is not None:
@@ -1514,9 +1514,9 @@ def build_train_valid_test_data_loaders(build_train_valid_test_datasets_provider
     log.info("> building train, validation, and test datasets ...")
     # Backward compatibility, assume fixed batch size.
     if args.iteration > 0 and args.consumed_train_samples == 0:
-        assert args.train_samples is None, (
-            "only backward compatiblity support for iteration-based training"
-        )
+        assert (
+            args.train_samples is None
+        ), "only backward compatiblity support for iteration-based training"
         args.consumed_train_samples = args.iteration * args.global_batch_size
     if args.iteration > 0 and args.consumed_valid_samples == 0:
         if args.train_samples is None:
