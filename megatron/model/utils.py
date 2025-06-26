@@ -12,11 +12,11 @@ from deepspeed.runtime.zero import GatheredParameters
 
 def init_method_normal(sigma):
     """Init method based on N(0, sigma)."""
+    ### Begin MuP Comment --- Use this function with the correctly scaled sigma value --- ### End MuP Comment
     def init_(tensor):
         return torch.nn.init.normal_(tensor, mean=0.0, std=sigma)
 
     return init_
-
 
 def scaled_init_method_normal(sigma, num_layers):
     """Init method based on N(0, sigma/sqrt(2*num_layers)."""

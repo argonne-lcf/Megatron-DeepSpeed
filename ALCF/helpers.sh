@@ -222,6 +222,28 @@ setup_run_cmd() {
     if [[ -z "${OVERRIDE_CKPT_OPT_PARAM:-}" ]]; then
         train_args+=("--use-checkpoint-opt_param-scheduler")
     fi
+
+    # Add MuP to the model
+    export MUP_BASE_WIDTH=${MUP_BASE_WIDTH:-256}
+    export MUP_MUL=$(( $HIDDEN / $MUP_BASE_WIDTH ))
+    mup_flags+=(
+    		"--enable-mup"
+		"--mup-coord-check=True"
+		"--mup-hidden-weights-scale=${MUP_MUL}"
+		"--mup-hidden-lr-scale=${MUP_MUL}"
+		)
+
+
+    # Add depth scaling to the model
+    export DEPTH_BASE=${DEPTH_BASE:-2}
+    export DEPTH_MUL=$(( $NLAYERS / $DEPTH_BASE ))
+    depth_scaling_flags+=(
+    			"--enable-depth-scale"
+			"--depth-base=${DEPTH_BASE}"
+			"--depth-multiplier=${DEPTH_MUL}"
+			"--depth-alpha=0.5")
+    
+
     # "--init-method-std ${INIT_METHOD_STD:-0.0006}"
     # "--shuffle-sample"
     train_args+=(
@@ -271,6 +293,9 @@ setup_run_cmd() {
         "--num-attention-heads=${HEADS}"
         "--data-cache-path=${data_cache_path}"
         "--data-file-list=${DATA_FILE_LIST:-${dfl_fallback}}"
+	# add MUP parameters
+	"${mup_flags[@]}"
+	"${depth_scaling_flags[@]}"
     )
     # "--adam-eps ${ADAM_EPS:-0.00001}"
     cache_dir="${PBS_O_WORKDIR}/.cache/"

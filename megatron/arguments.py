@@ -47,6 +47,7 @@ def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     parser = _add_retro_args(parser)
     parser = _add_profiler_args(parser)
     parser = _add_mup_args(parser)
+    parser = _add_depth_scaling_args(parser)
 
     # Custom arguments.
     if extra_args_provider is not None:
@@ -501,38 +502,64 @@ def core_transformer_config_from_args(args):
 
     return TransformerConfig(**kw_args)
 
+def _add_depth_scaling_args(parser):
+
+    group = parser.add_argument_group(title='Depth_Scaling')
+
+    group.add_argument('--enable-depth-scale', action='store_true',
+                       help='Include in cmd to implement parameterization for model depth scaling', dest='enable_depth_scale')
+    
+    #group.add_argument('--depth_scaling_enabled', type=bool, default=False,
+    #                   help='Include in cmd to implement parameterization for model depth scaling', dest='depth_scaling_enabled')
+    
+
+    group.add_argument('--depth-base', type=int, default=1,
+                       help='Specify number of layers in base model', dest='depth_base')
+    
+    group.add_argument('--depth-multiplier', type=float, default=1.0,
+                       help='Number of layers / Base number of layers', dest='depth_multiplier')
+
+    group.add_argument('--depth-alpha', type=float, default=0.5,
+                       help='Value of alpha used in depth scaling', dest='depth_alpha')
+
+    return parser
+
 def _add_mup_args(parser):
     group = parser.add_argument_group(title='MuP')
 
-    group.add_argument('--enable-mup', type=bool, default=False, 
-                       help='Set True to use MuP', dest='enable-mup')
+    group.add_argument('--enable-mup', action='store_true', 
+                       help='Include in cmd to implement MuP', dest='enable_mup')
     
+    #group.add_argument('--enable-mup', type=bool, default=False, 
+    #                   help='Set True to use MuP', dest='enable-mup')
+ 
 
     group.add_argument('--mup-coord-check', type=bool, default=False, 
-                       help='Perform coordinate check for MuP', dest='mup-coord-check')
+                       help='Perform coordinate check for MuP', dest='mup_coord_check')
 
     group.add_argument('--mup-input-weights-scale', type=float, default=1.0, 
-                       help='Scalar to multiply initial weights', dest='mup-input-weights-scale')
+                       help='Scalar to multiply initial weights', dest='mup_input_weights_scale')
     
 
     group.add_argument('--mup-hidden-weights-scale', type=float, default=1.0, 
-                       help='Scalar to multiply hidden weights', dest='mup-hidden-weights-scale')
+                       help='Scalar to multiply hidden weights', dest='mup_hidden_weights_scale')
 
     group.add_argument('--mup-output-weights-scale', type=float, default=1.0, 
-                       help='Scalar to multiply output weights', dest='mup-output-weights-scale')
+                       help='Scalar to multiply output weights', dest='mup_output_weights_scale')
     
 
     group.add_argument('--mup-input-lr-scale', type=float, default=1.0, 
-                       help='To scale learning rate for input weights', dest='mup-input-lr-scale')
+                       help='To scale learning rate for input weights', dest='mup_input_lr_scale')
 
 
     group.add_argument('--mup-hidden-lr-scale', type=float, default=1.0, 
-                       help='To scale learning rate for hidden weights', dest='mup-hidden-lr-scale')
+                       help='To scale learning rate for hidden weights', dest='mup_hidden_lr_scale')
     
 
     group.add_argument('--mup-output-lr-scale', type=float, default=1.0, 
-                       help='To scale learning rate for output weights', dest='mup-output-lr-scale')
+                       help='To scale learning rate for output weights', dest='mup_output_lr_scale')
 
+    
     return parser
 
 

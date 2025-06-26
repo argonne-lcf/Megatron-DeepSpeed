@@ -147,7 +147,8 @@ class Embedding(MegatronModule):
         super(Embedding, self).__init__()
 
         self.hidden_size = hidden_size
-        self.init_method = config.init_method
+        
+       
         self.num_tokentypes = num_tokentypes
 
         args = get_args()
@@ -155,8 +156,10 @@ class Embedding(MegatronModule):
         # Word embeddings (parallel).
         self.embedding_weights_in_fp32 = embedding_weights_in_fp32
         self.params_dtype = args.params_dtype
+        
         self.word_embeddings = tensor_parallel.VocabParallelEmbedding(
-            vocab_size, self.hidden_size, config=config, init_method=config.init_method)
+                vocab_size, self.hidden_size, config=config, init_method=config.init_method)
+        
         self._word_embeddings_key = 'word_embeddings'
 
         # Position embedding (serial).
@@ -505,6 +508,7 @@ class TransformerLanguageModel(MegatronModule):
                     # embedding tying that also does not have a bias.
                     bias=False
                 )
+                
                 self._output_layer_key = 'output_layer'
 
     def set_input_tensor(self, input_tensor):
