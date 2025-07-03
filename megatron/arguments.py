@@ -798,8 +798,38 @@ def _add_regularization_args(parser):
     group.add_argument('--adam-eps', type=float, default=1e-08,
                        help='Term added to the denominator to improve'
                        'numerical stability')
+    group.add_argument('--dshampooadamw-max-preconditioner-dim', type=int, default=8192,
+                       help='Max preconditioner dim')
+    group.add_argument('--dshampooadamw-precondition-freq', type=int, default=100,
+                       help='dshampoo preconditioner frequency')
+    group.add_argument('--dshampooadamw-use-decoupled-weight-decay', type=bool, default=True,
+                       help='dshampoo use decoupled weight decay')
+    group.add_argument('--dshampooadamw-eps', type=float, default=1e-12,
+                       help='dshampoo epsilon')
     group.add_argument('--sgd-momentum', type=float, default=0.9,
                        help='Momentum factor for sgd')
+
+
+
+
+    group.add_argument('--muon-momentum', type=float, default=0.95,
+                       help='Momentum factor for Muon ')
+    group.add_argument('--muon-nesterov', type=bool, default=True,
+                       help='Whether to use Nesterov in the internal SGD')
+    group.add_argument('--muon-ns-steps', type=int, default=6,
+                       help='The number of Newton-Schulz iterations to run')
+    group.add_argument('--muonadamw-beta1', type=float, default=0.9,
+                       help='beta1 for internal adamw')
+    group.add_argument('--muonadamw-beta2', type=float, default=0.999,
+                       help='beta2 for internal adamw')
+    group.add_argument('--muonadamw-eps', type=float, default=1e-12,
+                       help='epsilon for internal adamw')
+
+
+
+
+
+
 
     return parser
 
@@ -966,10 +996,12 @@ def _add_training_args(parser):
             'galoreadamw8bitperlayer',
             'ipex.fusedlamb',
             'ipex.lamb',
-            'shampoo',
+            'dshampooadamw',
             'sgd',
             'sgdschedulefree',
-            'sophiag'
+            'sophiag',
+            'adopt',
+            'muon'
         ],
         help='Optimizer function'
     )
@@ -1066,7 +1098,7 @@ def _add_learning_rate_args(parser):
                        'and initial warmup, the learing rate at each '
                        'iteration would be different.')
     group.add_argument('--lr-decay-style', type=str, default='linear',
-                       choices=['constant', 'linear', 'cosine', 'inverse-square-root'],
+                       choices=['constant', 'linear', 'cosine', 'inverse-square-root', 'infinite-cosine', 'infinite-inv-square-root'],
                        help='Learning rate decay function.')
     group.add_argument('--lr-decay-iters', type=int, default=None,
                        help='number of iterations to decay learning rate over,'
@@ -1089,12 +1121,33 @@ def _add_learning_rate_args(parser):
     group.add_argument('--lr-warmup-tokens', type=int, default=None,
                        help='number of tokens to linearly warmup '
                        'learning rate over.')
+    group.add_argument('--lr-constant-tokens', type=int, default=None,
+                       help='number of tokens to keep constant '
+                       'learning rate over.')
+    group.add_argument('--lr-constant-fraction', type=float, default=0.001,
+                       help='fraction of lr-constant-(iters/samples) to use '
+                       'for constant phase (as a float)')
+
+    group.add_argument('--lr-cooldown-tokens', type=int, default=None,
+                       help='number of tokens to cooldown learning rate over,'
+                       ' If not None will override iter/sample-based decay')
+    group.add_argument('--lr-cooldown-fraction', type=float, default=0.65,
+                       help='fraction -(iters/samples) to use '
+                       'for cooldownt phase (as a float)')
+    group.add_argument('--lr-finder', action='store_true', 
+                   help='Run learning rate finder mode for 10% of training data then exit')
+
+
     group.add_argument('--warmup', type=int, default=None,
                        help='Old lr warmup argument, do not use. Use one of the'
                        '--lr-warmup-* arguments above')
     group.add_argument('--min-lr', type=float, default=0.0,
                        help='Minumum value for learning rate. The scheduler'
                        'clip values below this threshold.')
+    group.add_argument('--constant-lr', type=float, default=0.00011,
+                       help='Constant value for learning rate')
+    group.add_argument('--timescale', type=float, default=10.0,
+                       help='Timescale for the steepness of the inverse square root cooldown')
     group.add_argument('--override-opt_param-scheduler', action='store_true',
                        help='Reset the values of the scheduler (learning rate,'
                        'warmup iterations, minimum learning rate, maximum '

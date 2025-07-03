@@ -12,21 +12,18 @@ if accelerator is not None and accelerator.device_name() == "xpu":
 
 if accelerator is not None and accelerator.device_name() == "cuda":
     from .fused_layer_norm import MixedFusedLayerNorm as LayerNorm
-
-    try:
-        from apex.normalization import MixedFusedRMSNorm as RMSNorm  # type:ignore
-
-        HAS_APEX = True
-    except Exception:
-        HAS_APEX = False
-        from .rmsnorm import RMSNorm
+    from .rmsnorm import RMSNorm
+    # try:
+    #     from apex.normalization import FusedLayerNorm as LayerNorm  # type:ignore
+    #     HAS_APEX = True
+    # except Exception:
+    #     HAS_APEX = False
 else:
     if hasattr(torch.xpu, "IpexRmsNorm"):
         from .fused_rmsnorm import RMSNorm
     else:
         from .rmsnorm import RMSNorm  # noqa:E401,E402,F401
     from torch.nn import LayerNorm  # noqa:E401,E402,F401
-
 
 from .distributed import DistributedDataParallel  # noqa:E401,E402,F401
 from .bert_model import BertModel  # noqa:E401,E402,F401

@@ -319,6 +319,11 @@ def save_checkpoint(iteration, model, optimizer, opt_param_scheduler):
         # Trim off the filename and mp_rank_* directory.
         for _ in range(3):
             checkpoint_name = os.path.dirname(checkpoint_name)
+        #try:
+        #    model[0].save_checkpoint(checkpoint_name, client_state=state_dict)
+        #except Exception:
+        #   import ezpz
+        #    ezpz.utils.breakpoint(0)
         model[0].save_checkpoint(checkpoint_name, client_state=state_dict)
 
         if args.no_pipeline_parallel:
