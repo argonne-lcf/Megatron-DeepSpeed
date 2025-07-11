@@ -45,7 +45,7 @@ if __name__ == "__main__":
         assert ("Provide the right file path, The file should be of format mp_rank_*.pt")
     print(f"loading mds checkpoint {filename}")
  
-    mds_model = torch.load(args.mds_checkpoint,map_location=torch.device('cpu'))
+    mds_model = torch.load(args.mds_checkpoint,map_location=torch.device('cpu'), weights_only=False)
     Llama_model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf",cache_dir=args.cache_dir)
     
     Llama_config = Llama_model.config 

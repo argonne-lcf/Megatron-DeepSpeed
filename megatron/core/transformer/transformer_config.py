@@ -58,6 +58,9 @@ class TransformerConfig(ModelParallelConfig):
                                              megatron.core.utils.scaled_init_method_normal(init_method_std)
                                              which is torch.nn.init.normal_ with mean=0.0 and
                                              std=init_method_std / math.sqrt(2.0 * num_layers).
+        
+                
+        word_embedding_init_std (float): Standard deviation of the zero mean normal initialization for the word embeddings
 
         init_method_std (float): Standard deviation of the zero mean normal for the default
                                  initialization method, not used if init_method and
@@ -125,6 +128,11 @@ class TransformerConfig(ModelParallelConfig):
     init_method: Callable = None
     output_layer_init_method: Callable = None
     init_method_std: float = 0.02
+    
+    adjust_word_embedding_init: bool = False
+    world_embedding_init_method: Callable = None
+    word_embedding_init_std: float = 0.02
+
 
     # mixed-precision
     apply_query_key_layer_scaling: bool = True
@@ -208,6 +216,12 @@ class TransformerConfig(ModelParallelConfig):
 
         if self.init_method is None:
             self.init_method = init_method_normal(self.init_method_std)
+               
+        if self.world_embedding_init_method is None:
+            if self.adjust_word_embedding_init:
+                self.world_embedding_init_method = init_method_normal(self.word_embedding_init_std)
+            else:
+                self.world_embedding_init_method = self.init_method
 
         if self.output_layer_init_method is None:
             self.output_layer_init_method = scaled_init_method_normal(self.init_method_std, self.num_layers)
