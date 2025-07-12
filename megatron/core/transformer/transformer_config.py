@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from megatron.core import ModelParallelConfig
 from megatron.core.utils import init_method_normal, scaled_init_method_normal
 
+
 @dataclass
 class TransformerConfig(ModelParallelConfig):
     """Configuration object for megatron-core transformers.
@@ -58,6 +59,9 @@ class TransformerConfig(ModelParallelConfig):
                                              megatron.core.utils.scaled_init_method_normal(init_method_std)
                                              which is torch.nn.init.normal_ with mean=0.0 and
                                              std=init_method_std / math.sqrt(2.0 * num_layers).
+        
+                
+        word_embedding_init_std (float): Standard deviation of the zero mean normal initialization for the word embeddings
 
         init_method_std (float): Standard deviation of the zero mean normal for the default
                                  initialization method, not used if init_method and
@@ -125,6 +129,11 @@ class TransformerConfig(ModelParallelConfig):
     init_method: Callable = None
     output_layer_init_method: Callable = None
     init_method_std: float = 0.02
+    
+    adjust_word_embedding_init: bool = False
+    world_embedding_init_method: Callable = None
+    word_embedding_init_std: float = 0.02
+
 
     # mixed-precision
     apply_query_key_layer_scaling: bool = True
@@ -145,12 +154,14 @@ class TransformerConfig(ModelParallelConfig):
     distribute_saved_activations: bool = None
 
     def __post_init__(self):
-        """ Python dataclass method that is used to modify attributes after initialization.
-            See https://docs.python.org/3/library/dataclasses.html#post-init-processing for more details.
+        """Python dataclass method that is used to modify attributes after initialization.
+        See https://docs.python.org/3/library/dataclasses.html#post-init-processing for more details.
         """
         super().__post_init__()
         if self.fp16 and self.bf16:
-            raise ValueError(f'Only one of self.fp16: {self.fp16} and self.bf16 {self.bf16} should be True.')
+            raise ValueError(
+                f"Only one of self.fp16: {self.fp16} and self.bf16 {self.bf16} should be True."
+            )
 
         if self.ffn_hidden_size is None:
             self.ffn_hidden_size = 4 * self.hidden_size
@@ -166,34 +177,36 @@ class TransformerConfig(ModelParallelConfig):
             self.attention_softmax_in_fp32 = True
 
         if self.recompute_granularity is not None:
-            if not self.recompute_granularity in ['full', 'selective']:
+            if not self.recompute_granularity in ["full", "selective"]:
                 raise ValueError(
                     f'When using recompute_granuarlity: {self.recompute_granularity} must be "full" or "selective".'
                 )
 
             if self.recompute_method is not None:
-                if not self.recompute_method in ['block', 'uniform']:
-                    raise ValueError(f'recompute_method: {self.recompute_method} must be "block" or "uniform".')
-            elif self.recompute_granularity != 'selective':
+                if not self.recompute_method in ["block", "uniform"]:
+                    raise ValueError(
+                        f'recompute_method: {self.recompute_method} must be "block" or "uniform".'
+                    )
+            elif self.recompute_granularity != "selective":
                 raise ValueError(
                     f'Using recompute_granularity: {self.recompute_granularity} so recompute_method must be "block" or "uniform"'
                 )
 
             if self.recompute_num_layers is None:
                 raise ValueError(
-                    f'When using recompute_granularity: {self.recompute_granularity} so recompute_num_layers must be between '
-                    f'1 and num_layers_per_pipeline_rank: {self.num_layers // self.pipeline_model_parallel_size}'
+                    f"When using recompute_granularity: {self.recompute_granularity} so recompute_num_layers must be between "
+                    f"1 and num_layers_per_pipeline_rank: {self.num_layers // self.pipeline_model_parallel_size}"
                 )
 
             if self.distribute_saved_activations and self.sequence_parallel_enabled:
                 raise ValueError(
-                    f'distribute_saved_activations: {self.distribute_saved_activations} must be false when sequence parallel is enabled: {self.sequence_parallel_enabled}'
+                    f"distribute_saved_activations: {self.distribute_saved_activations} must be false when sequence parallel is enabled: {self.sequence_parallel_enabled}"
                 )
 
             if self.virtual_pipeline_model_parallel_size is not None:
                 if not self.num_layers % self.virtual_pipeline_model_parallel_size == 0:
                     raise ValueError(
-                        f'num_layers: {self.num_layers} must be divisible by virtual_model_parallel_size {self.virtual_pipeline_model_parallel_size}'
+                        f"num_layers: {self.num_layers} must be divisible by virtual_model_parallel_size {self.virtual_pipeline_model_parallel_size}"
                     )
 
         if self.apply_query_key_layer_scaling:
@@ -201,14 +214,25 @@ class TransformerConfig(ModelParallelConfig):
 
         if self.bias_gelu_fusion:
             if not self.add_bias_linear:
-                raise ValueError("When bias_gelu_fusion is True, add_bias_linear must also be True.")
+                raise ValueError(
+                    "When bias_gelu_fusion is True, add_bias_linear must also be True."
+                )
 
             if self.activation_func != F.gelu:
-                raise ValueError(f'When bias_gelu_fusion is True, activation_func must be F.gelu.')
+                raise ValueError(
+                    f"When bias_gelu_fusion is True, activation_func must be F.gelu."
+                )
 
         if self.init_method is None:
             self.init_method = init_method_normal(self.init_method_std)
+               
+        if self.world_embedding_init_method is None:
+            if self.adjust_word_embedding_init:
+                self.world_embedding_init_method = init_method_normal(self.word_embedding_init_std)
+            else:
+                self.world_embedding_init_method = self.init_method
 
         if self.output_layer_init_method is None:
-            self.output_layer_init_method = scaled_init_method_normal(self.init_method_std, self.num_layers)
-
+            self.output_layer_init_method = scaled_init_method_normal(
+                self.init_method_std, self.num_layers
+            )

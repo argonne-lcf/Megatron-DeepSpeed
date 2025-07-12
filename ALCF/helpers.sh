@@ -948,6 +948,7 @@ get_output_prefix() {
     pre="${pre}_seq${SEQ}_gb${GLOBAL_BATCH}"
     pre="${pre}_sp${SP}_pp${PP}_tp${TP}_${DTYPE}_opt${OPT}"
     pre="${pre}_lr${LR}_lwf${LR_WARMUP_FRAC}"
+    pre="${pre}_ntok${TRAIN_TOKENS}"
     if [[ -n "${TOKENIZER_TYPE:-}" ]]; then
         _tok=$(echo "${TOKENIZER_TYPE}" | sed 's/Tokenizer//g') # noqa
         pre="${pre}_tok${_tok}"

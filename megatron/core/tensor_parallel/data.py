@@ -19,8 +19,11 @@ _MAX_DATA_DIM = 5
 def _check_data_types(keys, data, target_dtype):
     """Check that all the keys have the same target data type."""
     for key in keys:
-        assert data[key].dtype == target_dtype, '{} has data type {} which '\
-            'is different than {}'.format(key, data[key].dtype, target_dtype)
+        assert (
+            data[key].dtype == target_dtype
+        ), "{} has data type {} which " "is different than {}".format(
+            key, data[key].dtype, target_dtype
+        )
 
 
 def _build_key_size_numel_dictionaries(keys, data, group=None, rank=-1, src_rank=-1):
@@ -30,7 +33,7 @@ def _build_key_size_numel_dictionaries(keys, data, group=None, rank=-1, src_rank
         src_rank = get_tensor_model_parallel_src_rank()
     if rank < 0:
         rank = get_tensor_model_parallel_rank()
-                    
+
     """Build the size on rank 0 and broadcast."""
     max_dim = _MAX_DATA_DIM
     sizes = [0 for _ in range(max_dim) for _ in keys]
@@ -39,7 +42,7 @@ def _build_key_size_numel_dictionaries(keys, data, group=None, rank=-1, src_rank
     if rank == 0:
         offset = 0
         for key in keys:
-            assert data[key].dim() < max_dim, 'you should increase MAX_DATA_DIM'
+            assert data[key].dim() < max_dim, "you should increase MAX_DATA_DIM"
             size = data[key].size()
             for i, s in enumerate(size):
                 sizes[i + offset] = s
@@ -94,7 +97,8 @@ def broadcast_data(keys, data, datatype):
         group = get_tensor_model_parallel_group()
 
     key_size, key_numel, total_numel = _build_key_size_numel_dictionaries(
-        keys, data, group=group, rank=rank, src_rank=src_rank)
+        keys, data, group=group, rank=rank, src_rank=src_rank
+    )
 
     # Pack on rank zero.
     if rank == 0:
@@ -102,11 +106,12 @@ def broadcast_data(keys, data, datatype):
         _check_data_types(keys, data, datatype)
         # Flatten the data associated with the keys
         flatten_data = torch.cat(
-            [data[key].contiguous().view(-1) for key in keys], dim=0).to(get_accelerator().device_name())
+            [data[key].contiguous().view(-1) for key in keys], dim=0
+        ).to(get_accelerator().device_name())
     else:
-        flatten_data = torch.empty(total_numel,
-                                   device=get_accelerator().current_device_name(),
-                                   dtype=datatype)
+        flatten_data = torch.empty(
+            total_numel, device=get_accelerator().current_device_name(), dtype=datatype
+        )
 
     # Broadcast
     torch.distributed.broadcast(flatten_data, src_rank, group=group)

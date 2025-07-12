@@ -5,6 +5,7 @@ from typing import Callable
 
 import torch
 
+
 @dataclass
 class ModelParallelConfig:
     """Base configuration for Megatron Core
@@ -70,7 +71,7 @@ class ModelParallelConfig:
     enable_autocast (bool): If true runs the forward step function inside torch.autocast context. Default is False.
 
     autocast_dtype (torch.dtype): dtype to pass to torch.amp.autocast when enabled. Default is pipeline_dtype.
-    
+
     variable_seq_lengths (bool, default=False): Support for variable sequence lengths across microbatches. Setting this
         communicates the size of tensors during pipeline parallelism communication, because of this extra overhead it
         should only be set if the sequence length varies by microbatch within a global batch.
@@ -128,7 +129,7 @@ class ModelParallelConfig:
     # Optimizations
     gradient_accumulation_fusion: bool = False
     async_tensor_model_parallel_allreduce: bool = False
-    
+
     # Pipeline Parallel
     pipeline_dtype: torch.dtype = None
     grad_scale_func: Callable = None
@@ -146,19 +147,23 @@ class ModelParallelConfig:
     param_sync_func: Callable = None
 
     def __post_init__(self):
-        """ Python dataclass method that is used to modify attributes after initialization.
-            See https://docs.python.org/3/library/dataclasses.html#post-init-processing for more details.
+        """Python dataclass method that is used to modify attributes after initialization.
+        See https://docs.python.org/3/library/dataclasses.html#post-init-processing for more details.
         """
         if self.sequence_parallel:
             if self.tensor_model_parallel_size <= 1:
-                raise ValueError("Can not use sequence paralllelism without tensor parallelism")
+                raise ValueError(
+                    "Can not use sequence paralllelism without tensor parallelism"
+                )
             if self.async_tensor_model_parallel_allreduce:
                 # sequence_parallelism already does this async
                 self.async_tensor_model_parallel_allreduce = False
 
         if self.pipeline_model_parallel_size > 1:
             if self.pipeline_dtype is None:
-                raise ValueError("When using pipeline parallelism, pipeline_dtype must be specified")
+                raise ValueError(
+                    "When using pipeline parallelism, pipeline_dtype must be specified"
+                )
 
         if self.autocast_dtype is None:
             self.autocast_dtype = self.params_dtype
