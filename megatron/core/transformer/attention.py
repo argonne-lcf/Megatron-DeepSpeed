@@ -12,8 +12,8 @@ from megatron.core.utils import divide
 from megatron.core.transformer.module import MegatronModule
 from megatron.core.transformer.enums import AttnType, AttnMaskType
 from megatron.core.transformer.transformer_config import TransformerConfig
-from megatron.core.transformer.custom_layers.transformer_engine import \
-        TECoreAttention, TEColumnParallelLinear, TERowParallelLinear
+from megatron.core.transformer.custom_layers.transformer_engine import TECoreAttention, TEColumnParallelLinear, TERowParallelLinear
+
 
 class Attention(MegatronModule, ABC):
     """Attention layer abstract class.
@@ -38,16 +38,22 @@ class Attention(MegatronModule, ABC):
 
         # Per attention head and per partition values.
         world_size = parallel_state.get_tensor_model_parallel_world_size()
-        self.hidden_size_per_attention_head = divide(self.projection_size, self.config.num_attention_heads)
-        self.num_attention_heads_per_partition = divide(self.config.num_attention_heads, world_size)
+        self.hidden_size_per_attention_head = divide(
+            self.projection_size, self.config.num_attention_heads
+        )
+        self.num_attention_heads_per_partition = divide(
+            self.config.num_attention_heads, world_size
+        )
 
         self.core_attention = TECoreAttention(
             config=self.config,
             layer_number=self.layer_number,
-            attn_mask_type=self.attn_mask_type
+            attn_mask_type=self.attn_mask_type,
         )
 
-        self.checkpoint_core_attention = self.config.recompute_granularity == 'selective'
+        self.checkpoint_core_attention = (
+            self.config.recompute_granularity == "selective"
+        )
 
         # Output.
         self.linear_proj = TERowParallelLinear(
@@ -93,7 +99,13 @@ class Attention(MegatronModule, ABC):
         is "self-attn" or "cross-attn".
         """
 
-    def forward(self, hidden_states, attention_mask, key_value_states=None, inference_params=None):
+    def forward(
+        self,
+        hidden_states,
+        attention_mask,
+        key_value_states=None,
+        inference_params=None,
+    ):
         # hidden_states: [sq, b, h]
 
         # =================================================
@@ -106,23 +118,29 @@ class Attention(MegatronModule, ABC):
             if self.layer_number not in inference_params.key_value_memory_dict:
                 inf_max_seq_len = inference_params.max_sequence_len
                 inf_max_batch_size = inference_params.max_batch_size
-                inference_key_memory = self._allocate_memory(inf_max_seq_len, inf_max_batch_size)
-                inference_value_memory = self._allocate_memory(inf_max_seq_len, inf_max_batch_size)
+                inference_key_memory = self._allocate_memory(
+                    inf_max_seq_len, inf_max_batch_size
+                )
+                inference_value_memory = self._allocate_memory(
+                    inf_max_seq_len, inf_max_batch_size
+                )
                 inference_params.key_value_memory_dict[self.layer_number] = (
                     inference_key_memory,
                     inference_value_memory,
                 )
             else:
-                inference_key_memory, inference_value_memory = inference_params.key_value_memory_dict[
-                    self.layer_number
-                ]
+                inference_key_memory, inference_value_memory = (
+                    inference_params.key_value_memory_dict[self.layer_number]
+                )
 
         # =====================
         # Query, Key, and Value
         # =====================
         # Get the query, key and value tensors based on the type of attention -
         # self or cross attn.
-        query, key, value = self.get_query_key_value_tensors(hidden_states, key_value_states)
+        query, key, value = self.get_query_key_value_tensors(
+            hidden_states, key_value_states
+        )
 
         # ==================================
         # Adjust key and value for inference
@@ -136,8 +154,12 @@ class Attention(MegatronModule, ABC):
             sequence_end = sequence_start + key.size(0)
             assert sequence_end <= inference_key_memory.size(0)
             # Copy key and values.
-            inference_key_memory[sequence_start:sequence_end, batch_start:batch_end, ...] = key
-            inference_value_memory[sequence_start:sequence_end, batch_start:batch_end, ...] = value
+            inference_key_memory[
+                sequence_start:sequence_end, batch_start:batch_end, ...
+            ] = key
+            inference_value_memory[
+                sequence_start:sequence_end, batch_start:batch_end, ...
+            ] = value
             key = inference_key_memory[:sequence_end, batch_start:batch_end, ...]
             value = inference_value_memory[:sequence_end, batch_start:batch_end, ...]
 
@@ -146,7 +168,9 @@ class Attention(MegatronModule, ABC):
         # ==================================
 
         if self.checkpoint_core_attention:
-            core_attn_out = self._checkpointed_attention_forward(query, key, value, attention_mask)
+            core_attn_out = self._checkpointed_attention_forward(
+                query, key, value, attention_mask
+            )
         else:
             core_attn_out = self.core_attention(query, key, value, attention_mask)
 
@@ -158,29 +182,31 @@ class Attention(MegatronModule, ABC):
 
         return output, bias
 
+
 class SelfAttention(Attention):
     """Self-attention layer class
 
     Self-attention layer takes input with size [s, b, h]
     and returns output of the same size.
     """
-    def __init__(self,
-                 config: TransformerConfig,
-                 layer_number: int = 1,
-                 attn_mask_type=AttnMaskType.padding):
+
+    def __init__(
+        self,
+        config: TransformerConfig,
+        layer_number: int = 1,
+        attn_mask_type=AttnMaskType.padding,
+    ):
         super().__init__(
-            config=config,
-            layer_number=layer_number,
-            attn_mask_type=attn_mask_type
+            config=config, layer_number=layer_number, attn_mask_type=attn_mask_type
         )
 
         self.linear_qkv = TEColumnParallelLinear(
-                self.config.hidden_size,
-                3 * self.projection_size,
-                config=self.config,
-                init_method=self.config.init_method,
-                bias=self.config.add_bias_linear,
-                skip_bias_add=False
+            self.config.hidden_size,
+            3 * self.projection_size,
+            config=self.config,
+            init_method=self.config.init_method,
+            bias=self.config.add_bias_linear,
+            skip_bias_add=False,
         )
 
     def get_query_key_value_tensors(self, hidden_states, key_value_states=None):
@@ -202,20 +228,22 @@ class SelfAttention(Attention):
 
         return query, key, value
 
+
 class CrossAttention(Attention):
     """Cross-attention layer class
 
     Cross-attention layer takes input with size [s, b, h] and context with size
     [s, b, h] and returns output of the same size.
     """
-    def __init__(self,
-                 config: TransformerConfig,
-                 layer_number: int = 1,
-                 attn_mask_type=AttnMaskType.padding):
+
+    def __init__(
+        self,
+        config: TransformerConfig,
+        layer_number: int = 1,
+        attn_mask_type=AttnMaskType.padding,
+    ):
         super().__init__(
-            config=config,
-            layer_number=layer_number,
-            attn_mask_type=attn_mask_type
+            config=config, layer_number=layer_number, attn_mask_type=attn_mask_type
         )
 
         self.linear_q = TEColumnParallelLinear(
@@ -224,7 +252,7 @@ class CrossAttention(Attention):
             config=self.config,
             init_method=self.config.init_method,
             bias=self.config.add_bias_linear,
-            skip_bias_add=False
+            skip_bias_add=False,
         )
 
         self.linear_kv = TEColumnParallelLinear(
@@ -233,7 +261,7 @@ class CrossAttention(Attention):
             config=self.config,
             init_method=self.config.init_method,
             bias=self.config.add_bias_linear,
-            skip_bias_add=False
+            skip_bias_add=False,
         )
 
     def get_query_key_value_tensors(self, hidden_states, key_value_states):

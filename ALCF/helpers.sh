@@ -20,6 +20,13 @@
 #    command for launching across all GPUs in our active PBS job.
 ###############################################################################
 
+###############################################################################
+# Source:
+# [`ezpz/bin/utils.sh`](https://github.com/saforem2/ezpz/blob/main/src/ezpz/bin/utils.sh)
+source <(curl -L https://bit.ly/ezpz-utils) > /dev/null || exit
+ezpz_setup_job >/dev/null || exit
+###############################################################################
+
 ##################
 # helpers_main
 #
@@ -65,54 +72,43 @@ helpers_main() {
 #
 # - Explicitly, this will:
 #    - Identify the machine we're on
-#
 #    - Setup `python`
 #       1. Load `conda`
 #       2. Setup `venv` on top of `conda`
-#
 #    - Ensure all dependencies are installed
-#
 #    - Clone + Install [`saforem2/ezpz`](https://github.com/saforem2/ezpz)
 #       - Source [`ezpz/utils.sh`](https://github.com/saforem2/ezpz/blob/main/src/ezpz/bin/utils.sh)
 #           - This provides `{ezpz_setup_python, ezpz_setup_job}` (called below)
-#
 #    - Set runtime options
-#
 #    - Build `deepspeed_config.json`
-#
 #    - Build {logs, checkpoints, etc} dirs, named according to specifics of
 #       current run
-#
 #    - Specify additional `deepspeed` arguments
-#
 #    - Ensure executable exists at expected path
-#
 #    - Setup data + tokenizer via `TOKENIZER_TYPE`
-#
 #    - Print job info
-#
 #    - Save `.env` to `CKPT_DIR` for safe keeping
-#
 #    - Check that we're not already running, and if so, exit.
-#
 #    - Setup run command to be executed.
 ##############################################################################
 setup() {
     # Identify machine we're on
-    get_machine || exit
+    mn=$(ezpz_get_machine_name)
+    export MACHINE="${mn}"
+    # get_machine || exit
     ##########################################################################
-    # ezpz_setup will:
-    # 1. Setup python
-    #     - load base conda
-    #     - (if necessary) create virtual environment on top of base conda
-    #     - activate virtual environment from ^
-    # 2. Install ezpz (if needed)
-    # 3. Parse PBS_* environment variables to determine:
-    #     - NHOSTS (by counting number of lines in $PBS_NODEFILE)
-    #     - NGPU_PER_HOST (by magic)
-    #     - NGPUS (= NHOSTS * NGPU_PER_HOST)
-    # 4. Use these (^) to build our launch command
-    ezpz_setup || exit
+    # # ezpz_setup will:
+    # # 1. Setup python
+    # #     - load base conda
+    # #     - (if necessary) create virtual environment on top of base conda
+    # #     - activate virtual environment from ^
+    # # 2. Install ezpz (if needed)
+    # # 3. Parse PBS_* environment variables to determine:
+    # #     - NHOSTS (by counting number of lines in $PBS_NODEFILE)
+    # #     - NGPU_PER_HOST (by magic)
+    # #     - NGPUS (= NHOSTS * NGPU_PER_HOST)
+    # # 4. Use these (^) to build our launch command
+    # ezpz_setup || exit
     ##########################################################################
     install_dependencies
     # Set command line arguments to pass to `"${EXEC}"`
@@ -126,7 +122,7 @@ setup() {
     set_args || exit
     # Ensure executable exists in expected path
     check_executable "${EXEC:-${WORKING_DIR}/pretrain_gpt_alcf.py}"
-    dfl="${DATA_FILE_LIST:-"${PBS_O_WORKDIR}/ALCF/data-lists/$(get_machine_name)/dolma.txt"}"
+    dfl="${DATA_FILE_LIST:-"${PBS_O_WORKDIR:-${HERE}}/ALCF/data-lists/$(ezpz_get_machine_name)/dolma.txt"}"
     # Setup data + tokenizer via `DATA_FILE_LIST` and `TOKENIZER_TYPE`
     tok="${TOKENIZER_TYPE:-Llama2Tokenizer}"
     setup_tokenizer_and_data "${tok}" "${dfl}" || exit
@@ -216,7 +212,7 @@ setup_run_cmd() {
             "--tensorboard-dir ${TBDIR}"
         )
     fi
-    dfl_fallback="${DATA_FILE_LIST:-${PBS_O_WORKDIR}/ALCF/data-lists/$(get_machine_name)/dolma.txt}"
+    dfl_fallback="${DATA_FILE_LIST:-${PBS_O_WORKDIR}/ALCF/data-lists/$(ezpz_get_machine_name)/dolma.txt}"
 
     train_args=()
     if [[ -z "${OVERRIDE_CKPT_OPT_PARAM:-}" ]]; then
@@ -272,13 +268,42 @@ setup_run_cmd() {
         "--data-cache-path=${data_cache_path}"
         "--data-file-list=${DATA_FILE_LIST:-${dfl_fallback}}"
     )
+    declare -A arch_map
+    printf "==== ARCHITECTURE ====\n"
+    arch_map=(
+        ["TP"]="${TP}"
+        ["PP"]="${PP}"
+        ["SP"]="${SP}"
+        ["DP"]="${DP}"
+        ["MBS"]="${MICRO_BATCH}"
+        ["GAS"]="${GRAD_ACC_STEPS}"
+        ["GBS"]="${GLOBAL_BATCH}"
+        ["NLAYERS"]="${NLAYERS}"
+        ["HIDDEN"]="${HIDDEN}"
+        ["HEADS"]="${HEADS}"
+        ["SEQ"]="${SEQ}"
+        ["FFN_HIDDEN_SIZE"]="${FFN_HIDDEN_SIZE}"
+        ["NUM_KV_HEAD"]="${NUM_KV_HEAD}"
+        ["USE_ACTIVATION_CHECKPOINTING"]="${USE_ACTIVATION_CHECKPOINTING:-0}"
+        # ["DTYPE"]="${DTYPE}"
+        # ["OPT"]="${OPT}"
+        # ["WEIGHT_DECAY"]="${WEIGHT_DECAY}"
+        # ["ADAM_BETA1"]="${ADAM_BETA1}"
+        # ["ADAM_BETA2"]="${ADAM_BETA2}"
+        # ["ADAM_EPS"]="${ADAM_EPS}"
+        # ["CLIP_GRAD"]="${CLIP_GRAD:-1.0}"
+    )
+    for v in "${!arch_map[@]}"; do
+        printf "%s: %s\n" "$(printGreen "${v}")" "$(printBlue "${arch_map[${v}]}")"
+    done
+    printf "======================\n"
     # "--adam-eps ${ADAM_EPS:-0.00001}"
     cache_dir="${PBS_O_WORKDIR}/.cache/"
     mkdir -p "${cache_dir}"
     targs_cache="${cache_dir}/train_args.txt"
     for arg in "${train_args[@]}"; do echo "${arg}" >>"${targs_cache}"; done
     export TRAIN_ARGS=("$(printf '%s\n' "${train_args[@]}" | sort)")
-    printf "Training Arguments: %s\n" "${TRAIN_ARGS[@]}"
+    printf "Training Arguments: %s\n" "$(printBlue "${TRAIN_ARGS[@]}")"
     export run_cmd=("${LAUNCHER}" "${train_args[@]}")
 }
 
@@ -297,60 +322,60 @@ save_dotenv() {
     fi
 }
 
-######################################################################
-# get_machine_name:
+#######################################################################
+## get_machine_name:
+##
+## Return current machine name, as lowercase string
+##
+## Example:
+##   ```bash
+##   $ machine_name=$(get_machine_name)
+##   $ echo "machine_name: ${machine_name}"
+##   ```
+#######################################################################
+#get_machine_name() {
+#    if [[ $(hostname) == x4* || $(hostname) == aurora* ]]; then
+#        machine="aurora"
+#    elif [[ $(hostname) == x1* || $(hostname) == uan* ]]; then
+#        machine="sunspot"
+#    elif [[ $(hostname) == x3* || $(hostname) == polaris* ]]; then
+#        if [[ "${PBS_O_HOST}" == sirius* ]]; then
+#            machine="sirius"
+#        else
+#            machine="polaris"
+#        fi
+#    elif [[ $(hostname) == sophia* ]]; then
+#        machine="sophia"
+#    elif [[ $(hostname) == nid* ]]; then
+#        machine="perlmutter"
+#    else
+#        machine=$(hostname)
+#    fi
+#    echo "${machine}"
+#}
 #
-# Return current machine name, as lowercase string
-#
-# Example:
-#   ```bash
-#   $ machine_name=$(get_machine_name)
-#   $ echo "machine_name: ${machine_name}"
-#   ```
-######################################################################
-get_machine_name() {
-    if [[ $(hostname) == x4* || $(hostname) == aurora* ]]; then
-        machine="aurora"
-    elif [[ $(hostname) == x1* || $(hostname) == uan* ]]; then
-        machine="sunspot"
-    elif [[ $(hostname) == x3* || $(hostname) == polaris* ]]; then
-        if [[ "${PBS_O_HOST}" == sirius* ]]; then
-            machine="sirius"
-        else
-            machine="polaris"
-        fi
-    elif [[ $(hostname) == sophia* ]]; then
-        machine="sophia"
-    elif [[ $(hostname) == nid* ]]; then
-        machine="perlmutter"
-    else
-        machine=$(hostname)
-    fi
-    echo "${machine}"
-}
-
-get_machine() {
-    machine=$(hostname)
-    if [[ $(hostname) == x4* ]]; then
-        machine="aurora"
-    elif [[ $(hostname) == x1* ]]; then
-        machine="sunspot"
-    elif [[ $(hostname) == x3* ]]; then
-        if [[ "${PBS_O_HOST}" == sirius* ]]; then
-            machine="sirius"
-        else
-            machine="polaris"
-        fi
-    elif [[ $(hostname) == sophia* ]]; then
-        machine="sophia"
-    elif [[ $(hostname) == nid* ]]; then
-        machine="perlmutter"
-    else
-        echo "Unknown MACHINE. Setting MACHINE to $(hostname) and continuing..."
-    fi
-    export MACHINE="${machine}"
-    printf "Running on: %s\n" "$(printBlue "${MACHINE}")"
-}
+#get_machine() {
+#    machine=$(hostname)
+#    if [[ $(hostname) == x4* ]]; then
+#        machine="aurora"
+#    elif [[ $(hostname) == x1* ]]; then
+#        machine="sunspot"
+#    elif [[ $(hostname) == x3* ]]; then
+#        if [[ "${PBS_O_HOST}" == sirius* ]]; then
+#            machine="sirius"
+#        else
+#            machine="polaris"
+#        fi
+#    elif [[ $(hostname) == sophia* ]]; then
+#        machine="sophia"
+#    elif [[ $(hostname) == nid* ]]; then
+#        machine="perlmutter"
+#    else
+#        echo "Unknown MACHINE. Setting MACHINE to $(hostname) and continuing..."
+#    fi
+#    export MACHINE="${machine}"
+#    printf "Running on: %s\n" "$(printBlue "${MACHINE}")"
+#}
 
 check_and_kill_if_running() {
     RUNNING_PIDS=$(lsof -i:29500 -Fp | head -n 1 | sed 's/^p//')
@@ -397,6 +422,10 @@ printJobInfo() {
 # will launch with `deepspeed` instead of `mpiexec`.
 #############################################################################
 setupLauncher() {
+    shell_type=$(basename "${SHELL}")
+    if [[ "${shell_type}" == "bash" ]]; then
+        shopt -s expand_aliases
+    fi
     if [[ "$#" == 1 ]]; then
         local dist_launcher="$1"
     else
@@ -410,21 +439,26 @@ setupLauncher() {
         make_ds_hostfile || exit
         export LAUNCHER="deepspeed --hostfile $hfds --launcher MPICH ${EXEC}"
     else
-        if [[ -n "${DIST_LAUNCH}" ]]; then
-            mn=$(get_machine_name)
-            if [[ "${mn}" == "aurora" || "${mn}" == "sunspot" ]]; then
-                LAUNCHER="${DIST_LAUNCH} --pmi=pmix --genvall $(which python3) -Wignore ${EXEC}"
-            elif [[ "${mn}" == "sophia" ]]; then
-                LAUNCHER="${DIST_LAUNCH} $(which python3) -Wignore ${EXEC}"
-            else
-                LAUNCHER="${DIST_LAUNCH} --genvall $(which python3) -Wignore ${EXEC}"
-            fi
-            export LAUNCHER="${LAUNCHER}"
-        else
-            echo "[setupLauncher][INFO]: Saving environment to: .env-${PBS_JOBID}"
-            printenv | tee ".env-${PBS_JOBID}"
-            echo "[setupLauncher][ERROR]: DIST_LAUNCH not found in environment !!"
-        fi
+        LAUNCHER="ezpz-launch ${EXEC}"
+        # source <(curl -L https://bit.ly/ezpz-utils) && ezpz_setup_job
+        # echo "ezpz_launch: $(which ezpz_launch)"
+        # export -f ezpz_launch
+        # export LAUNCHER="ezpz_launch) $(which python3) -Wignore ${EXEC}"
+        # if [[ -n "${DIST_LAUNCH}" ]]; then
+        #     mn=$(ezpz_get_machine_name)
+        #     if [[ "${mn}" == "aurora" || "${mn}" == "sunspot" ]]; then
+        #         LAUNCHER="${DIST_LAUNCH} --pmi=pmix --genvall $(which python3) -Wignore ${EXEC}"
+        #     elif [[ "${mn}" == "sophia" ]]; then
+        #         LAUNCHER="${DIST_LAUNCH} $(which python3) -Wignore ${EXEC}"
+        #     else
+        #         LAUNCHER="${DIST_LAUNCH} --genvall $(which python3) -Wignore ${EXEC}"
+        #     fi
+        #     export LAUNCHER="${LAUNCHER}"
+        # else
+        #     echo "[setupLauncher][INFO]: Saving environment to: .env-${PBS_JOBID}"
+        #     printenv | tee ".env-${PBS_JOBID}"
+        #     echo "[setupLauncher][ERROR]: DIST_LAUNCH not found in environment !!"
+        # fi
     fi
     printf "Launching with: %s\n" "$(printRed "${dist_launcher}")"
     printf " %s" "$(printMagenta "${LAUNCHER}")"
@@ -548,7 +582,8 @@ set_ccl_vars_on_aurora() {
     export CCL_PROCESS_LAUNCHER=pmix # Required by Aurora mpich
     export FI_PROVIDER=cxi           # Required by Aurora mpich
     export PALS_PMI=pmix             # Required by Aurora mpich
-    export CCL_ATL_TRANSPORT=mpi     # Required by Aurora mpich
+    # export CCL_ATL_TRANSPORT=mpi     # Required by Aurora mpich
+    export CCL_ATL_TRANSPORT=ofi # [SF]: Changed 04/30/2025
     export TORCH_LLM_ALLREDUCE=1
     export CCL_SYCL_ESIMD=1
     export CCL_ALLGATHERV_MEDIUM_SIZE_THRESHOLD=0 # Required by current oneCCL (MLSL-2881)
@@ -558,6 +593,59 @@ set_ccl_vars_on_aurora() {
     export FI_CXI_DEFAULT_CQ_SIZE=1048576
     export FI_CXI_RX_MATCH_MODE=hybrid
     export CCL_BCAST=double_tree
+}
+
+
+get_model_arch_7B() {
+    # 7B
+    # export MODEL_KEY="AuroraGPT-7B"
+    export HEADS=${HEADS:-${NHEADS:-32}}             # NUMBER OF ATEN HEADS
+    export NLAYERS=${NLAYERS:-${NUM_LAYERS:-32}}     # NUMBER OF LAYERS
+    export HIDDEN=${HIDDEN:-4096}                    # HIDDEN SIZE
+    export NUM_KV_HEAD=${NUM_KV_HEAD:-8}             # GROUP ATTENTION
+    export FFN_HIDDEN_SIZE=${FFN_HIDDEN_SIZE:-11008} # FFN HIDDEN SIZE
+    export SEQ=${SEQ:-4096}                          # SEQ_LEN: 4096
+}
+
+# get_model_arch_70B() {
+#     # 70B
+#     export MODEL_KEY="AuroraGPT-70B"
+#     export TP=6
+#     export ZERO_STAGE=2
+#     export GRAD_ACC_STEPS=1
+#     export USE_ACTIVATION_CHECKPOINTING=1
+#     export MICRO_BATCH=1
+#     export NLAYERS=80
+#     export HIDDEN=8192
+#     export HEADS=96
+#     export FFN_HIDDEN_SIZE=11040
+#     export SEQ=8192
+#     export NUM_KV_HEAD=6
+# }
+#
+get_model_arch_70B() {
+    HEADS=64
+    NLAYERS=80
+    NUM_KV_HEAD=8
+    FFN_HIDDEN_SIZE=28672
+    HIDDEN=8192
+    SEQ_LEN=8192
+}
+
+get_model_arch_33B() {
+    # 33B
+    export MODEL_KEY="AuroraGPT-33B"
+    export TP=6
+    export ZERO_STAGE=2
+    export GRAD_ACC_STEPS=1
+    # export USE_ACTIVATION_CHECKPOINTING=1
+    export MICRO_BATCH=1
+    export NLAYERS=78
+    export HIDDEN=8268
+    export HEADS=78
+    export FFN_HIDDEN_SIZE=11076
+    export SEQ=4096
+    export NUM_KV_HEAD=6
 }
 
 ##############################################################################
@@ -576,7 +664,8 @@ setParams() {
     # ---- [Parallelism Settings] -------------------------------------------+
     # ------ [Aurora] -------||------ [SunSpot] -------------
     # if [[ $(hostname) == x4* || $(hostname) == x1* ]]; then
-    mn=$(get_machine_name)
+    GIT_BRANCH=$(git branch --show-current) && export GIT_BRANCH
+    mn=$(ezpz_get_machine_name)
     if [[ "${mn}" == "aurora" || "${mn}" == "sunspot" ]]; then
         TP=${TP:-1} # TP = 1
         export SAVE_INTERVAL="${SAVE_INTERVAL:-50}"
@@ -616,9 +705,9 @@ setParams() {
     # ---- [Sophia] ----------------------
     elif [[ "${mn}" == sophia* ]]; then
         # export LAUNCH_CMD="${LAUNCH_CMD:-deepspeed}"
-        TP=${TP:-1}               # TP = 2
-        export NCCL=${NCCL:-nccl} # NCCL
-        export BE="${NCCL}"       # BE = NCCL
+        TP=${TP:-1}                                # TP = 2
+        export NCCL=${NCCL:-nccl}                  # NCCL
+        export BE="${NCCL}"                        # BE = NCCL
         export DTYPE=${DTYPE:-bf16}                # DTYPE: FP16
         export GRAD_ACC_STEPS=${GRAD_ACC_STEPS:-8} # GRADIENT_ACC_STEPS
         export MICRO_BATCH="${MICRO_BATCH:-$(get_batch_size_on_polaris)}"
@@ -642,6 +731,13 @@ setParams() {
             FLASH_ARG="--use-flash-attn-v2"
         fi
     fi
+    # model_arch="${MODEL_ARCH:-7B}"
+    # printf "Using model architecture: %s\n" "$(printGreen "${model_arch}")"
+    if [[ "${MODEL_ARCH:-}" == "70B" ]]; then
+        get_model_arch_70B
+    else
+        get_model_arch_7B
+    fi
     export TP="${TP}"
     export PP="${PP:-1}"
     export SP="${SP:-1}"
@@ -656,20 +752,12 @@ setParams() {
     fi
     export NGPU_PER_HOST="${NGPU_PER_HOST}"
     export WORLD_SIZE="${WORLD_SIZE:-$((NHOSTS * NGPU_PER_HOST))}"
-    if [[ "${WORLD_SIZE}" -gt 1 && "${mn}" == "aurora" ]]; then
-        #### [sam: 08/17/2024] ##########################################
-        # Use best set of CCL env vars from Gordon Bell runs on Aurora
-        set_ccl_vars_on_aurora
-    fi
-    # +---[Llama2 7B Config]--------------------------------------------------+
-    # export MODEL_KEY="Llama-7B"
-    export HEADS=${HEADS:-${NHEADS:-32}}             # NUMBER OF ATEN HEADS
-    export NLAYERS=${NLAYERS:-${NUM_LAYERS:-32}}     # NUMBER OF LAYERS
-    export HIDDEN=${HIDDEN:-4096}                    # HIDDEN SIZE
-    export NUM_KV_HEAD=${NUM_KV_HEAD:-8}             # GROUP ATTENTION
-    export FFN_HIDDEN_SIZE=${FFN_HIDDEN_SIZE:-11008} # FFN HIDDEN SIZE
+    # if [[ "${WORLD_SIZE}" -gt 1 && "${mn}" == "aurora" ]]; then
+    #     #### [sam: 08/17/2024] ##########################################
+    #     # Use best set of CCL env vars from Gordon Bell runs on Aurora
+    #     set_ccl_vars_on_aurora
+    # fi
     # +---[Run Settings]------------------------------------------------------+
-    export SEQ=${SEQ:-4096}                                                               # SEQ_LEN: 4096
     export ZERO_STAGE=${ZERO_STAGE:-1}                                                    # ZERO OFFLOADING STAGE
     export MICRO_BATCH=${MICRO_BATCH:-1}                                                  # MICRO BATCH SIZE
     export GRAD_ACC_STEPS=${GRAD_ACC_STEPS:-1}                                            # GRADIENT ACCUMULATION STEPS
@@ -677,7 +765,9 @@ setParams() {
     export ACT_CKPT_NUM_LAYERS="${ACT_CKPT_NUM_LAYERS:-1}"                                # NUM LAYERS TO CHECKPOINT ACTIVATIONS
     export USE_ACTIVATION_CHECKPOINTING=${USE_ACTIVATION_CHECKPOINTING:-}                 # USE ACTIVATION CHECKPOINTING ?
     export GLOBAL_BATCH_MAX=$((WORLD_SIZE * MICRO_BATCH * GRAD_ACC_STEPS / TP / PP / SP)) # MAX GLOBAL BATCH SIZE
+    export DP=$((WORLD_SIZE / TP / PP / SP))                                              # DATA PARALLELISM
     export GLOBAL_BATCH="${GLOBAL_BATCH:-${GLOBAL_BATCH_MAX}}"                            # WILL USE MAX IF NOT SET IN ENVIRONMENT
+    echo "WORLD_SIZE: ${WORLD_SIZE} MBS: ${MICRO_BATCH} GAS: ${GRAD_ACC_STEPS} DP: ${DP} GBS: ${GLOBAL_BATCH} GBS_MAX: ${GLOBAL_BATCH_MAX} TP: ${TP} PP: ${PP} SP: ${SP}"
     if [[ -n "${TRAIN_TOKENS:-}" ]]; then
         export TRAIN_TOKENS="${TRAIN_TOKENS}"
         export TRAIN_ITERS=$((TRAIN_TOKENS / SEQ / GLOBAL_BATCH))
@@ -731,9 +821,11 @@ set_args() {
     fi
     ds_args+=("--deepspeed_config=${DS_CONFIG}")
     ds_args+=("--zero-stage=$ZERO_STAGE")
-    if [[ "${ZERO_STAGE}" == 3 ]]; then
-        ds_args+=("--use-mics")
-    fi
+
+    # if [[ "${ZERO_STAGE}" == 3 ]]; then
+    #     ds_args+=("--use-mics")
+    # fi
+
     # ds_args=" "
     # ds_args=" --deepspeed ${ds_args}"
     # if [[ $PP == 1 ]]; then
@@ -796,30 +888,27 @@ make_ds_hostfile() {
 # 3. Call `_ezpz_install` (from `Megatron-DeepSpeed/ALCF/helpers.sh`):
 #    - Install ezpz from `"${WORKING_DIR}/depz/ezpz/"`
 ###########################################
-ezpz_setup() {
-    # setup_alcf "$@"
-    # file=$(mktemp)
-    # curl -Ls https://raw.githubusercontent.com/saforem2/ezpz/main/src/ezpz/bin/getjobenv > "${file}"
-    # shellcheck source=../deps/ezpz/src/ezpz/bin/utils.sh
-    ezdir="${WORKING_DIR}/deps/ezpz"
-    if [[ -d "${ezdir}" ]]; then
-        echo "Found ezpz in ${ezdir}"
-    else
-        mkdir -p "$(dirname "${ezdir}")"
-        git clone https://github.com/saforem2/ezpz "${ezdir}"
-    fi
-    # shellcheck source=../deps/ezpz/src/ezpz/bin/utils.sh
-    source "${ezdir}/src/ezpz/bin/utils.sh" || exit
-    ezpz_setup_python
-    ezpz_setup_job "$@"
-    ezpz_pip_loc=$(python3 -m pip list | grep ezpz | awk '{print $NF}')
-    if [[ -z "${ezpz_pip_loc:-}" ]]; then
-        printf "[ezpz_install] Installing ezpz from %s\n" "${ezdir}"
-        python3 -m pip install -e "${ezdir}" --require-virtualenv
-    else
-        printf "[ezpz_install] Found ezpz @ %s\n" "${ezpz_pip_loc}"
-    fi
-}
+# ezpz_setup() {
+#     source <()
+#     ezdir="${WORKING_DIR}/deps/ezpz"
+#     if [[ -d "${ezdir}" ]]; then
+#         echo "Found ezpz in ${ezdir}"
+#     else
+#         mkdir -p "$(dirname "${ezdir}")"
+#         git clone https://github.com/saforem2/ezpz "${ezdir}"
+#     fi
+#     # shellcheck source=../deps/ezpz/src/ezpz/bin/utils.sh
+#     source "${ezdir}/src/ezpz/bin/utils.sh" || exit
+#     ezpz_setup_python
+#     ezpz_setup_job "$@"
+#     ezpz_pip_loc=$(python3 -m pip list | grep ezpz | awk '{print $NF}')
+#     if [[ -z "${ezpz_pip_loc:-}" ]]; then
+#         printf "[ezpz_install] Installing ezpz from %s\n" "${ezdir}"
+#         python3 -m pip install -e "${ezdir}" --require-virtualenv
+#     else
+#         printf "[ezpz_install] Found ezpz @ %s\n" "${ezpz_pip_loc}"
+#     fi
+# }
 
 #######################################################################
 # ezpz_test: Run simple test to make sure all nodes in working order
@@ -843,12 +932,12 @@ ezpz_test() {
 saveDSenv() {
     echo "Saving {PATH, LD_LIBRARY_PATH, htt{p,ps}_proxy, CFLAGS, PYTHONUSERBASE} to .deepspeed_env"
     {
-        echo "PATH=${PATH}"
-        echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"
+        echo "PATH=${PATH:-}"
+        echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}"
         echo "http_proxy=${http_proxy:-}"
         echo "https_proxy=${https_proxy:-}"
-        echo "CFLAGS=${CFLAGS}"
-        echo "PYTHONUSERBASE=$PYTHONUSERBASE"
+        echo "CFLAGS=${CFLAGS:-}"
+        echo "PYTHONUSERBASE=${PYTHONUSERBASE:-}"
     } >.deepspeed_env
 }
 
@@ -955,7 +1044,7 @@ install_dependencies() {
     echo "[install_dependencies] Ensuring all dependencies from ${depsfile} installed..."
     python3 -m pip install -r "${depsfile}" --require-virtualenv 1>/dev/null
     if [[ ! -x "$(command -v deepspeed)" ]]; then
-        mn=$(get_machine_name)
+        mn=$(ezpz_get_machine_name)
         # if [[ "${mn}" == aurora* || "${mn}" == sunspot* ]]; then
         #     install_deepspeed_for_xpu || exit
         # fi
@@ -1054,7 +1143,7 @@ setup_tokenizer_and_data() {
     if [[ ${tok} == gpt* || ${tok} == GPT* ]]; then
         export TOKENIZER_TYPE="GPT2"
         _tokenizer_flags+=("--tokenizer-type GPT2BPETokenizer")
-        machine=$(get_machine_name)
+        machine=$(ezpz_get_machine_name)
         if [[ ${machine} == "polaris" || ${machine} == "sophia" ]]; then
             export DATA_PARENT="${DATA_PARENT:-/eagle/argonne_tpc/foremans/projects/argonne-lcf/Megatron-DeepSpeed/dataset}"
         elif [[ ${machine} == "sunspot" ]]; then
@@ -1098,7 +1187,7 @@ setup_tokenizer_and_data() {
 ###############################################
 setData() { # ------------------------[dfl: abbrv. for DATA_FILE_LIST]
     ####### [Set DATA_FILE_LIST_FALLBACK based on current machine] #############
-    mn=$(get_machine_name)
+    mn=$(ezpz_get_machine_name)
     dfl_fallback="${WORKING_DIR}/ALCF/data-lists/${mn}/dolma.txt"
     ############################################################################
     # set `dfl` to `dfl_fallback` if not passed as an argument,
@@ -1204,8 +1293,7 @@ generateDSconfig() {
               \"min_loss_scale\": 1
             },
             \"bfloat16\": {
-              \"enabled\": true,
-              \"loss_scale\": 1.0
+              \"enabled\": true
             },"
     elif [[ $DTYPE == "fp16" ]]; then
         dtype="\
@@ -1258,11 +1346,34 @@ generateDSconfig() {
     fi
     if [[ "${ZERO_STAGE}" == 3 ]]; then
         # \"mics_shard_size\": 2,
+        # hpz_partition_size=${ZERO_HPZ_PARTITION_SIZE:-${NGPU_PER_HOST:-1}}
+        # zero="\
+        #     \"zero_optimization\": {
+        #         \"stage\": 3,
+        #         \"reduce_scatter\": true,
+        #         \"reduce_bucket_size\": 10000000,
+        #         \"reduce_scatter\": true,
+        #         \"zero_quantized_weights\": true,
+        #         \"zero_hpz_partition_size\": $hpz_partition_size,
+        #         \"zero_quantized_gradients\": true,
+        #         \"contiguous_gradients\": true,
+        #         \"overlap_comm\": true,
+        #     }
+        # },"
+        # mics_shard_size="${MICS_SHARD_SIZE:-${NGPU_PER_HOST}}"
+        # \"mics_shard_size\": $mics_shard_size,
+        hpz_partition_size=${ZERO_HPZ_PARTITION_SIZE:-1}
+
+        # \"zero_quantized_weights\": false,
+            # \"zero_hpz_partition_size\": $hpz_partition_size,
+        # \"zero_quantized_gradients\": false,
+        # \"mics_shard_size\": 1,
+        # \"mics_hierarchical_params_gather\": false,
         zero="\
             \"zero_optimization\": {
               \"stage\": 3,
+              \"zero_hpz_partition_size\": $hpz_partition_size,
               \"reduce_scatter\": false,
-              \"mics_hierarchical_params_gather\": true,
               \"stage3_max_live_parameters\": 3e9,
               \"stage3_max_reuse_distance\": 3e9,
               \"stage3_param_persistence_threshold\": 1e5,
@@ -1338,31 +1449,6 @@ $flops_profiler
 }
 EOT
 }
-
-# #####################
-# # train
-# #####################
-# train() {
-#     # 1. Navigate into `$PBS_O_WORKDIR` <-- [should be Megatron-Deepspeed]
-#     cd "${PBS_O_WORKDIR}" || exit
-#     HERE=$(python3 -c 'import os; print(os.getcwd())') && export HERE
-#     # 2. source `ALCF/helpers.sh` <-- [should be ./ALCF/helpers.sh]
-#     source "${HERE}/ALCF/helpers.sh" || exit
-#     # 3. call `setup` from `./ALCF/helpers.sh`
-#     # export DATA_FILE_LIST="${HERE}/ALCF/data-lists/$(get_machine_name)/books.txt"
-#     setup || exit
-#     # 4. Take custom args
-#     export custom_args=" $@"
-#     # 5. Update ${run_cmd} (from setup ALCF/helpers.sh) with ${custom_args}
-#     export run_cmd="${run_cmd} ${custom_args}"
-#     # 6. Add "${run_cmd}" to output log
-#     echo "${run_cmd}" | tee -a "${OUTPUT_LOG}"
-#     # 7. Tell user where to find output
-#     printf "[!! %s] View output at:\n %s\n" "$(printBlue "NOTE")" "$(printYellow "${OUTPUT_LOG}")" | tee -a "${OUTPUT_LOG}"
-#     # 8. Evaluate ${run_cmd} and append outputs to ${OUTPUT_LOG}
-#     eval "${run_cmd}" |& tee -a "${OUTPUT_LOG}"
-#     set +x
-# }
 
 ###############################################
 # Helper functions for printing colored text

@@ -1,6 +1,7 @@
 # Copyright (C) 2024 Habana Labs, Ltd. an Intel Company.
 # Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 """Pretrain utilities."""
+
 import time
 
 # The earliest we can measure the start time.
@@ -190,7 +191,7 @@ def pretrain(
         [_TRAIN_START_TIME], dtype=torch.double, device=DEVICE_TYPE
     )
     tdist.all_reduce(start_time_tensor, op=tdist.ReduceOp.MIN)
-    log.info(f"allreduce call time: {time.time()-before_allreduce} seconds")
+    log.info(f"allreduce call time: {time.time() - before_allreduce} seconds")
     _TRAIN_START_TIME = start_time_tensor.item()
     log.info(
         "time to initialize megatron (seconds)={:.3f}".format(
@@ -241,7 +242,7 @@ def pretrain(
         build_train_valid_test_datasets_provider=train_valid_test_dataset_provider,
     )
     timers("model-and-optimizer-setup").stop()
-    print_datetime("after model, optimizer, and learning rate " "scheduler are built")
+    print_datetime("after model, optimizer, and learning rate scheduler are built")
     # Data stuff.
     timers("train/valid/test-data-iterators-setup", log_level=0).start(barrier=True)
     if args.virtual_pipeline_model_parallel_size is not None:
@@ -545,8 +546,9 @@ def get_model(
                     model_module.broadcast_params()
         else:
             raise NotImplementedError(
-                "Unknown DDP implementation specified: "
-                "{}. Exiting.".format(args.DDP_impl)
+                "Unknown DDP implementation specified: {}. Exiting.".format(
+                    args.DDP_impl
+                )
             )
 
     return model
@@ -636,9 +638,9 @@ def load_model_weights_only(model_provider_func):
             model=model[0], config=args.deepspeed_config_dict
         )
 
-        assert not isinstance(model, deepspeed.PipelineEngine), (
-            "Weight loading only mode is not supported in " "pipeline parallelism yet."
-        )
+        assert not isinstance(
+            model, deepspeed.PipelineEngine
+        ), "Weight loading only mode is not supported in pipeline parallelism yet."
         model = [model]
     print_datetime("before load checkpoint")
     if args.load is not None:
@@ -1559,14 +1561,16 @@ def evaluate_and_print_results(
     )
     key = "test" if test else "val"
     if wandb is not None and wandb.run is not None:
-        wandb.log({
-            f"{key}/iteration": iteration,
-            **{f"{key}/{k}": v for k, v in total_loss_dict.items()},
-            **{
-                f"{key}/ppl_{k}": math.exp(min(20, v.item()))
-                for k, v in total_loss_dict.items()
-            },
-        })
+        wandb.log(
+            {
+                f"{key}/iteration": iteration,
+                **{f"{key}/{k}": v for k, v in total_loss_dict.items()},
+                **{
+                    f"{key}/ppl_{k}": math.exp(min(20, v.item()))
+                    for k, v in total_loss_dict.items()
+                },
+            }
+        )
     string = " validation loss at {} | ".format(prefix)
     for key in total_loss_dict:
         string += f"{key} value={total_loss_dict[key].item():.6f}"

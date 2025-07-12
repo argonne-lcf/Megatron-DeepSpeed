@@ -9,8 +9,7 @@ from .layers import (
     set_defaults_if_not_set_tensor_model_parallel_attributes,
     copy_tensor_model_parallel_attributes,
     param_is_not_tensor_parallel_duplicate,
-    linear_with_grad_accumulation_and_async_allreduce
-
+    linear_with_grad_accumulation_and_async_allreduce,
 )
 
 from .mappings import (
@@ -41,7 +40,7 @@ __all__ = [
     "vocab_parallel_cross_entropy",
     # data.py
     "broadcast_data",
-    #layers.py
+    # layers.py
     "ColumnParallelLinear",
     "RowParallelLinear",
     "VocabParallelEmbedding",
@@ -54,7 +53,7 @@ __all__ = [
     "copy_to_tensor_model_parallel_region",
     "gather_from_tensor_model_parallel_region",
     "gather_from_sequence_parallel_region",
-#    "reduce_from_tensor_model_parallel_region",
+    #    "reduce_from_tensor_model_parallel_region",
     "scatter_to_tensor_model_parallel_region",
     "scatter_to_sequence_parallel_region",
     # random.py

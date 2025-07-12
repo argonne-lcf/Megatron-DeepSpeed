@@ -1,8 +1,12 @@
 # Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
 
 """Pretrain GPT"""
+
+# ruff: noqa:F401,E402
 import time
 from typing import Callable
+import ezpz
+
 from mpi4py import MPI
 
 comm = MPI.COMM_WORLD
@@ -44,20 +48,19 @@ import wandb
 
 from torch import nn
 import torch.nn.functional as F
-import ezpz as ez
-
 dt_imports = time.time() - python_start_time
 t0_setup = time.time()
 
 # ---- [SETUP COMMS] ------------------------
 # if str(os.environ.get('LAUNCH_CMD', 'mpich')).lower() == 'mpich':
-RANK = ez.setup_torch(backend="deepspeed")  # , timeout=7200)
+# RANK = ezpz.setup_torch(backend="deepspeed")  # , timeout=7200)
+RANK = ezpz.setup_torch()
 dt_setup = time.time() - t0_setup
 # else:
-#     RANK = ez.get_rank()
-WORLD_SIZE = ez.get_world_size()
-LOCAL_RANK = ez.get_local_rank()
-DEVICE_TYPE = ez.dist.get_torch_device_type()
+#     RANK = ezpz.get_rank()
+WORLD_SIZE = ezpz.get_world_size()
+LOCAL_RANK = ezpz.get_local_rank()
+DEVICE_TYPE = ezpz.get_torch_device_type()
 if torch.cuda.is_available():
     torch.cuda.set_device(LOCAL_RANK)
 
@@ -67,7 +70,7 @@ LOG_LEVEL = str(os.environ.get("LOG_LEVEL", "INFO")).upper()
 log.setLevel(LOG_LEVEL) if RANK == 0 else log.setLevel("CRITICAL")
 
 log.info(f"Import python modules in {dt_imports} seconds")
-log.info(f"ez.setup_torch time: {dt_setup} seconds")
+log.info(f"ezpz.setup_torch time: {dt_setup} seconds")
 
 # ---- [SETUP WANDB FROM RANK 0] --------------
 WANDB_MODE = os.environ.get("WANDB_MODE", None)
@@ -78,10 +81,10 @@ if RANK == 0 and not DISABLE_WANDB:
         os.environ.get("WANDB_PROJECT", "AuroraGPT"),  # look for WANDB_PROJECT in env
     )
     log.info(f"Setting up W&B from: {RANK} with {project_name}")
-    _ = ez.setup_wandb(project_name=project_name)
+    _ = ezpz.setup_wandb(project_name=project_name)
 
 
-@ez.dist.timeitlogit(rank=RANK)
+@ezpz.timeitlogit(rank=RANK)
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""
     log.info("building GPT model ...")
@@ -103,7 +106,7 @@ def model_provider(pre_process=True, post_process=True):
     with deepspeed_zero_init(
         data_parallel_group=dpg,
         remote_device=(None if args.remote_device == "none" else args.remote_device),
-        config_dict_or_path=args.deepspeed_config,  # _dict,
+        config_dict_or_path=args.deepspeed_config_dict,
         enabled=args.zero_stage == 3,
         mpu=mpu,
     ):
@@ -453,7 +456,7 @@ def forward_step(data_iterator, model) -> tuple[torch.Tensor | None, Callable]:
     return output_tensor, partial(loss_func, loss_mask, moe_loss, mos_loss)
 
 
-@ez.dist.timeitlogit(rank=RANK)
+@ezpz.timeitlogit(rank=RANK)
 def train_valid_test_datasets_provider(train_val_test_num_samples):
     """Build train, valid, and test datasets."""
     t0 = time.perf_counter()

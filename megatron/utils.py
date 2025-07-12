@@ -64,6 +64,7 @@ else:
     from functools import wraps
 
     class Profile(object):
+
         def __init__(
             self, cat, name=None, epoch=None, step=None, image_idx=None, image_size=None
         ):
@@ -99,6 +100,7 @@ else:
             return
 
     class dftracer(object):
+
         def __init__(
             self,
         ):
