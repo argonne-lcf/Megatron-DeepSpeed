@@ -18,7 +18,7 @@ from megatron.model.enums import AttnMaskType, LayerType, AttnType
 from megatron.model.fused_softmax import FusedScaleMaskSoftmax
 from megatron.model.fused_bias_gelu import bias_gelu_impl
 from megatron.model.rotary_pos_embedding import apply_rotary_pos_emb
-from megatron.model.utils import attention_mask_func, openai_gelu, erf_gelu
+from megatron.model.utils import attention_mask_func, openai_gelu, erf_gelu, init_method_normal
 import deepspeed
 from deepspeed.moe.layer import MoE
 from deepspeed.accelerator import get_accelerator
@@ -113,13 +113,20 @@ class ParallelMLP(MegatronModule):
         ffn_hidden_size = config.ffn_hidden_size
         if config.gated_linear_unit:
             ffn_hidden_size *= 2
+        
+        ### Begin MuP Code ###
+        if config.enable_mup:
+            load_init_method = init_method_normal(( config.mup_hidden_weights_scale ** (-1) ) * config.init_method_std )
+        else:
+            load_init_method = config.init_method
+        ### End MuP Code ###
 
         # Project to 4h. If using swiglu double the output width, see https://arxiv.org/pdf/2002.05202.pdf
         self.dense_h_to_4h = tensor_parallel.ColumnParallelLinear(
             config.hidden_size,
             ffn_hidden_size,
             config=config,
-            init_method=config.init_method,
+            init_method=load_init_method, ### Changed here  #config.init_method,
             bias=self.add_bias,
             gather_output=False,
             skip_bias_add=True,
@@ -157,7 +164,7 @@ class ParallelMLP(MegatronModule):
             config.ffn_hidden_size,
             config.hidden_size,
             config=config,
-            init_method=config.output_layer_init_method,
+            init_method=load_init_method, ### Changed here #config.output_layer_init_method,
             bias=self.add_bias,
             input_is_parallel=True,
             moe=moe,
@@ -663,33 +670,41 @@ class ParallelAttention(MegatronModule):
         assert self.hidden_size_per_attention_head == core.utils.divide(
             kv_projection_size, config.num_key_value_heads
         )
+        
+        ### Begin MuP Code ###
+        if config.enable_mup:
+            print("------------------SCALING VARIANCE OF ATTN----------------")
+            load_init_method = init_method_normal( (config.mup_hidden_weights_scale ** (-1)) * config.init_method_std)
+        else:
+            load_init_method = config.init_method
+        ### End MuP Code ###
 
         # Strided linear layer.
         if attention_type == AttnType.self_attn:
-            self.query_key_value = tensor_parallel.ColumnParallelLinear(
+            self.query_key_value = tensor_parallel.ColumnParallelLinear( ### Changed here
                 config.hidden_size,
                 projection_size + 2 * kv_projection_size,
                 config=config,
-                init_method=config.init_method,
+                init_method=load_init_method,   ### Changed here
                 bias=args.add_bias_linear,
                 gather_output=False,
             )
         else:
             assert attention_type == AttnType.cross_attn
-            self.query = tensor_parallel.ColumnParallelLinear(
-                config.hidden_size,
+            self.query = tensor_parallel.ColumnParallelLinear( ### Changed here
+                config.hidden_size,     
                 projection_size,
                 config=config,
-                init_method=config.init_method,
+                init_method=load_init_method,   ### Changed here
                 bias=config.add_bias_linear,
                 gather_output=False,
             )
 
-            self.key_value = tensor_parallel.ColumnParallelLinear(
+            self.key_value = tensor_parallel.ColumnParallelLinear( ### Changed here
                 config.hidden_size,
                 2 * projection_size,
                 config=config,
-                init_method=config.init_method,
+                init_method=load_init_method,   ### Changed here
                 bias=config.add_bias_linear,
                 gather_output=False,
             )
@@ -739,7 +754,7 @@ class ParallelAttention(MegatronModule):
             projection_size,
             config.hidden_size,
             config=config,
-            init_method=config.output_layer_init_method,
+            init_method=load_init_method, ### Changed here  #config.output_layer_init_method,
             bias=args.add_bias_linear,
             input_is_parallel=True,
             skip_bias_add=True,
@@ -1480,6 +1495,13 @@ class ParallelTransformerLayer(MegatronModule):
             inference_params=inference_params,
             rotary_pos_emb=rotary_pos_emb,
         )
+        
+        ### Begin MuP Code ###
+        args = get_args()
+
+        #if args.enable_mup:
+        #    attention_output = ( args.mup_hidden_weights_scale ** (-1) ) * attention_output
+        ### End MuP Code ###
 
         # Residual connection.
         if self.apply_residual_connection_post_layernorm:

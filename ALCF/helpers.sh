@@ -227,7 +227,7 @@ setup_run_cmd() {
     export MUP_BASE_WIDTH=${MUP_BASE_WIDTH:-256}
     export MUP_MUL=$(( $HIDDEN / $MUP_BASE_WIDTH ))
     mup_flags+=(
-    		"--enable-mup"
+    		#"--enable-mup"
 		"--mup-coord-check=True"
 		"--mup-hidden-weights-scale=${MUP_MUL}"
 		"--mup-hidden-lr-scale=${MUP_MUL}"
@@ -238,7 +238,7 @@ setup_run_cmd() {
     export DEPTH_BASE=${DEPTH_BASE:-2}
     export DEPTH_MUL=$(( $NLAYERS / $DEPTH_BASE ))
     depth_scaling_flags+=(
-    			"--enable-depth-scale"
+    			#"--enable-depth-scale"
 			"--depth-base=${DEPTH_BASE}"
 			"--depth-multiplier=${DEPTH_MUL}"
 			"--depth-alpha=0.5")

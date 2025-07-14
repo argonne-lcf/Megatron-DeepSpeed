@@ -238,9 +238,9 @@ class OptimizerParamScheduler(object):
         new_wd = self.get_wd()
         for group in self.optimizer.param_groups:
             ### Begin MuP Code ###
-            print("-----------AG DEBUG-------------")
-            print(group)
-            print("-----------AG DEBUG-------------")
+            #print("-----------AG DEBUG-------------")
+            #print(group)
+            #print("-----------AG DEBUG-------------")
             
             group['lr'] = new_lr * group.get('lr_mult', 1.0) * group.get('_mup_lr_mult', 1.0) * group.get('_depth_lr_mult', 1.0)
             group['weight_decay'] = new_wd * group.get('wd_mult', 1.0) * group.get('_mup_wd_mult', 1.0) * group.get('_depth_wd_mult', 1.0)

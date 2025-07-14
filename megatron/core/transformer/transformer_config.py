@@ -146,12 +146,13 @@ class TransformerConfig(ModelParallelConfig):
     
     ### Begin MuP Code ###
     # MuP enabled
-    enable_mup: bool = True
+    enable_mup: bool = False
+    mup_coord_check: bool = False
     mup_hidden_lr_scale: float = 1.0
     mup_hidden_weights_scale: float = 1.0
 
     # Depth scaling enabled
-    enable_depth_scale: bool = True
+    enable_depth_scale: bool = False
     depth_multiplier: float = 1.0
     depth_alpha: float = 1.0
 
@@ -228,7 +229,10 @@ class TransformerConfig(ModelParallelConfig):
         ### Begin MuP Code ###
         # Check if mup-enable flag is included in args
         if self.enable_mup is None:
-            self.enable_mup = True
+            self.enable_mup = False
+            
+        if self.mup_coord_check is None:
+            self.mup_coord_check = False
 
         if self.enable_depth_scale is None:
             self.enable_depth_scale = True

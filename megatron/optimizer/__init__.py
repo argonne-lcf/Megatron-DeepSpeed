@@ -75,9 +75,9 @@ def get_param_groups(
     galore_params = []
     target_modules_list = ["attn", "mlp"]
     for module in modules:
-        print("-----------------AG DEBUG MODULE--------------------")
-        print(module)
-        print("-----------------AG DEBUG MODULE--------------------")
+        #print("-----------------AG DEBUG MODULE--------------------")
+        #print(module)
+        #print("-----------------AG DEBUG MODULE--------------------")
         for name, param in module.named_parameters():
             print("-----------------AG DEBUG PAR NAME--------------------")
             print(name)
@@ -99,9 +99,10 @@ def get_param_groups(
 
             if not no_wd and not scale_lr:
                 ### Begin MuP Code ##
-                if args.enable_mup and args.enable_depth_scale and ( 'self_attention' in name or 'mlp.dense' in name):
-                    print("Adding mup and depth scaling lr to -" )
-                    print(name) 
+                if (args.enable_mup or args.enable_depth_scale) and ( 'self_attention' in name or 'mlp.dense' in name):
+                    #print("Adding mup and depth scaling lr to -" )
+                    #print(name)
+                    print("---------------  MUP flag enabled --------------------------")
                     wd_mup_wd_no_scale_lr_depth_mup_lr.append(param)
                 
                 else:
@@ -112,13 +113,13 @@ def get_param_groups(
             elif no_wd and not scale_lr:
                 ### Begin MuP Code ###
                 if args.enable_depth_scale and ('input_layernorm' in name or 'post_attention_layernorm' in name):
-                    print("Adding depth scaling lr to -" )
-                    print(name)
+                    #print("Adding depth scaling lr to -" )
+                    #print(name)
                     # Add depth scaling 
                     no_wd_no_scale_lr_depth_lr.append(param)
                 elif args.enable_depth_scale and ('self_attention' in name or 'mlp.dense' in name):
-                    print("Adding depth scaling lr to -" )
-                    print(name)
+                    #print("Adding depth scaling lr to -" )
+                    #print(name)
                     # Add depth scaling 
                     no_wd_no_scale_lr_depth_lr.append(param)
                 else:
@@ -138,9 +139,9 @@ def get_param_groups(
     if len(no_wd_scale_lr):
         param_groups.append({'name': 'no_wd_scale_lr', 'params': no_wd_scale_lr, 'wd_mult': 0.0, 'lr_mult': lr_mult, '_mup_lr_mult':1.0, '_depth_lr_mult':1.0, '_mup_wd_mult':1.0, '_depth_wd_mult':1.0})
     if len(no_wd_no_scale_lr_depth_lr):
-        param_groups.append({'name': 'no_wd_no_scale_lr_depth_lr', 'params': no_wd_no_scale_lr_depth_lr, 'wd_mult': 0.0, 'lr_mult': lr_mult, '_mup_lr_mult':1.0, '_depth_lr_mult':args.depth_multiplier ** (args.depth_alpha - 1), '_mup_wd_mult':1.0, '_depth_wd_mult':1.0})
+        param_groups.append({'name': 'no_wd_no_scale_lr_depth_lr', 'params': no_wd_no_scale_lr_depth_lr, 'wd_mult': 0.0, 'lr_mult': 1.0, '_mup_lr_mult':1.0, '_depth_lr_mult':args.depth_multiplier ** (args.depth_alpha - 1), '_mup_wd_mult':1.0, '_depth_wd_mult':1.0})
     if len(wd_mup_wd_no_scale_lr_depth_mup_lr):
-        param_groups.append({'name': 'wd_mup_wd_no_scale_lr_depth_mup_lr', 'params': wd_mup_wd_no_scale_lr_depth_mup_lr, 'wd_mult': 0.0, 'lr_mult': lr_mult, '_mup_lr_mult':args.mup_hidden_lr_scale ** (-1), '_depth_lr_mult':args.depth_multiplier ** (args.depth_alpha - 1), '_mup_wd_mult':args.mup_hidden_weights_scale, '_depth_wd_mult':1.0})
+        param_groups.append({'name': 'wd_mup_wd_no_scale_lr_depth_mup_lr', 'params': wd_mup_wd_no_scale_lr_depth_mup_lr, 'wd_mult': 1.0, 'lr_mult': 1.0, '_mup_lr_mult':1.0, '_depth_lr_mult':1.0, '_mup_wd_mult':args.mup_hidden_weights_scale, '_depth_wd_mult':1.0}) ###  '_mup_lr_mult':args.mup_hidden_lr_scale ** (-1),'_depth_lr_mult':args.depth_multiplier ** (args.depth_alpha - 1),
 
     return param_groups
 
@@ -170,6 +171,15 @@ def get_megatron_optimizer(
         )
 
     optimizer = None
+
+    ### Begin MuP Code ### -- args is a mutable object
+    if args.enable_mup:
+        args.adam_eps = args.adam_eps * (args.mup_hidden_lr_scale ** (-1))
+    elif args.enable_mup and args.enable_depth_scale:
+        args.adam_eps = args.adam_eps * (args.mup_hidden_lr_scale ** (-1)) * (args.depth_multiplier ** (-args.depth_alpha))
+    ### End MuP Code ###
+
+
     # ---- CPU Optimizer --------------------------------------
     if args.cpu_optimizer:
         assert args.optimizer == 'adam', 'CPU offloading is for Adam'

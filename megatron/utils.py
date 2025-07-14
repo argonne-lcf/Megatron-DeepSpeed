@@ -125,6 +125,45 @@ else:
     PerfTrace = dftracer()
     DFTRACER_ENABLE = False
 
+### Begin MuP Code ###
+def mup_coord_check(model):
+    
+    args = get_args()
+
+    temp_list = []    
+    for name, params in model[0].named_parameters():
+      
+        if 'word_embeddings' in name:
+            print("-------------------------------------------")
+            print(name)
+            print( (params.data.float()).abs().mean().item() )
+            temp_list.append((params.data.float()).abs().mean().item())
+        #elif '8.mlp.dense_4h_to' in name:
+        elif 'layers.0.' in name: 
+            print("-------------------------------------------")
+            print(name)
+            print( (params.data.float()).abs().mean().item() )
+            temp_list.append((params.data.float()).abs().mean().item())
+        elif 'layers.9.' in name: 
+            print("-------------------------------------------")
+            print(name)
+            print( (params.data.float()).abs().mean().item() )
+            temp_list.append((params.data.float()).abs().mean().item())
+        elif 'output_layer' in name:
+            print("-------------------------------------------")
+            print(name)
+            print( (params.data.float()).abs().mean().item() )
+            temp_list.append((params.data.float()).abs().mean().item())
+        
+    print(temp_list)
+    
+    file_name = f"adamw_hidden{args.hidden_size}_ffn{args.ffn_hidden_size}_depth{args.num_layers}_s1234_v3.txt"
+    with open(f"mup_coord_check/{file_name}", "a") as file:
+        for item in temp_list:
+            file.write( "%s " % item )
+        file.write('\n')
+### End MuP Code ###
+
 
 def get_logger(
     name: str,

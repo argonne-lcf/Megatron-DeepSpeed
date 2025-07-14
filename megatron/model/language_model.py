@@ -33,14 +33,22 @@ def parallel_lm_logits(input_, word_embeddings_weight, parallel_output,
         input_parallel = tensor_parallel.copy_to_tensor_model_parallel_region(input_)
         async_grad_allreduce = False
 
+    ### Begin MuP Code ###
+    if args.enable_mup:
+        log_mult = (args.mup_hidden_weights_scale ** (-1))
+    else:
+        log_mult = 1.0
+    ### End Mup Code ###
+    
     # Matrix multiply.
-    logits_parallel = tensor_parallel.linear_with_grad_accumulation_and_async_allreduce(
+    logits_parallel = log_mult * tensor_parallel.linear_with_grad_accumulation_and_async_allreduce(
         input=input_parallel,
         weight=word_embeddings_weight,
         bias=bias,
         gradient_accumulation_fusion=args.gradient_accumulation_fusion,
         async_grad_allreduce=async_grad_allreduce,
         sequence_parallel=args.sequence_parallel)
+    
     # Gather if needed.
 
     if parallel_output:
@@ -147,8 +155,7 @@ class Embedding(MegatronModule):
         super(Embedding, self).__init__()
 
         self.hidden_size = hidden_size
-        
-       
+        self.init_method = config.init_method   ### Begin MuP Comment --- Keeping this because it might be used for initializing position embeddings ?
         self.num_tokentypes = num_tokentypes
 
         args = get_args()
@@ -157,9 +164,16 @@ class Embedding(MegatronModule):
         self.embedding_weights_in_fp32 = embedding_weights_in_fp32
         self.params_dtype = args.params_dtype
         
-        self.word_embeddings = tensor_parallel.VocabParallelEmbedding(
-                vocab_size, self.hidden_size, config=config, init_method=config.init_method)
+        ### Begin MuP Code ### -- Do this only for dense inputs
+        if config.enable_mup:
+            load_init_function = init_method_normal( config.init_method_std * (vocab_size ** (-1/2)))
+        else:
+            load_init_function = config.init_method
         
+        self.word_embeddings = tensor_parallel.VocabParallelEmbedding(
+                vocab_size, self.hidden_size, config=config, init_method=load_init_function)
+        ### End MuP Code ###
+
         self._word_embeddings_key = 'word_embeddings'
 
         # Position embedding (serial).
