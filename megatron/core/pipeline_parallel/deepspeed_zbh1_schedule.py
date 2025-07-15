@@ -1,7 +1,6 @@
-from deepspeed.runtime.pipe.schedule import PipeSchedule, PipeInstruction, BufferOpInstruction, \
-    LoadMicroBatch, RecvActivation, SendActivation, RecvGrad, SendGrad, \
-    ForwardPass, BackwardPass, ReduceGrads, ReduceTiedGrads, OptimizerStep
+from deepspeed.runtime.pipe.schedule import PipeSchedule, PipeInstruction, BufferOpInstruction, LoadMicroBatch, RecvActivation, SendActivation, RecvGrad, SendGrad, ForwardPass, BackwardPass, ReduceGrads, ReduceTiedGrads, OptimizerStep
 from megatron import get_args
+
 
 class ZeroBubbleH1Pipeline(PipeSchedule):
     """A schedule for training a batch using hybrid parallelism.
@@ -57,7 +56,7 @@ class ZeroBubbleH1Pipeline(PipeSchedule):
             if not self.is_first_stage:
                 cmds.append(SendGrad(backward_id))
             yield cmds
-        
+
         # FBW section
         while forward < self.micro_batches:
             forward_id = self.get_buffer_id(forward)
@@ -84,14 +83,14 @@ class ZeroBubbleH1Pipeline(PipeSchedule):
             else:
                 if get_args().enable_zbh1_exact_semantics:
                     cmds.append(BackwardOnlyPass(backward_id))
-                    cmds.append(SendGrad(backward_id)) 
+                    cmds.append(SendGrad(backward_id))
                     cmds.append(WeightPass())
                 else:
                     cmds.append(BackwardPass(backward_id))
                     cmds.append(SendGrad(backward_id))
             yield cmds
 
-        #BW section
+        # BW section
         while backward < self.micro_batches:
             backward_id = self.get_buffer_id(backward)
             backward += 1
@@ -107,12 +106,12 @@ class ZeroBubbleH1Pipeline(PipeSchedule):
                 cmds.append(SendGrad(backward_id))
                 cmds.append(WeightPass())
             yield cmds
-        
-        #W section
+
+        # W section
         while weight < self.micro_batches:
             weight += 1
             yield [WeightPass()]
-        
+
         yield [ReduceTiedGrads(), ReduceGrads(), OptimizerStep()]
 
     def get_buffer_id(self, microbatch_id):
@@ -133,7 +132,9 @@ class BackwardOnlyPass(BufferOpInstruction):
         torch.autograd.backward(tensors=outputs,
                                 grad_tensors=gradients, inputs = input_tensor)
     """
+
     pass
+
 
 class WeightPass(PipeInstruction):
     """Compute a weight pass and accumulate gradients.
@@ -145,4 +146,5 @@ class WeightPass(PipeInstruction):
         torch.autograd.backward(tensors=outputs,
                                 grad_tensors=gradients, inputs = model.parameters())
     """
+
     pass

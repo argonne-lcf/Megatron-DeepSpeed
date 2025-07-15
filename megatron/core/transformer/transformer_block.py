@@ -36,12 +36,15 @@ class TransformerBlock(MegatronModule):
         # required for pipeline parallel schedules
         self.input_tensor = None
 
-        self.checkpoint_core_attention = self.config.recompute_granularity == 'selective'
+        self.checkpoint_core_attention = (
+            self.config.recompute_granularity == "selective"
+        )
 
         # TODO: Maybe we can create a build_transformer_block method here instead
 
         self.num_layers_per_pipeline_rank = (
-            self.config.num_layers // parallel_state.get_pipeline_model_parallel_world_size()
+            self.config.num_layers
+            // parallel_state.get_pipeline_model_parallel_world_size()
         )
 
         self._build_layers()
@@ -55,7 +58,9 @@ class TransformerBlock(MegatronModule):
         #     self.norm_factor *= coeff
         def build_layer(layer_number):
             return TransformerLayer(
-                config=self.config, layer_number=layer_number, self_attn_mask_type=self.self_attn_mask_type,
+                config=self.config,
+                layer_number=layer_number,
+                self_attn_mask_type=self.self_attn_mask_type,
             )
 
         pipeline_rank = parallel_state.get_pipeline_model_parallel_rank()
@@ -78,10 +83,15 @@ class TransformerBlock(MegatronModule):
             total_num_layers = self.config.num_layers
             num_layers_per_virtual_rank = self.num_layers_per_pipeline_rank // vp_size
             total_virtual_chunks = total_num_layers / vp_size
-            offset = vp_rank * total_virtual_chunks + (pipeline_rank * num_layers_per_virtual_rank)
+            offset = vp_rank * total_virtual_chunks + (
+                pipeline_rank * num_layers_per_virtual_rank
+            )
 
             self.layers = torch.nn.ModuleList(
-                [build_layer(i + 1 + offset) for i in range(num_layers_per_virtual_rank)]
+                [
+                    build_layer(i + 1 + offset)
+                    for i in range(num_layers_per_virtual_rank)
+                ]
             )
         else:
             # Each stage gets a contiguous set of layers.
@@ -92,7 +102,10 @@ class TransformerBlock(MegatronModule):
 
             # @jcasper why is layer_number using 1 index?
             self.layers = torch.nn.ModuleList(
-                [build_layer(i + 1 + offset) for i in range(self.num_layers_per_pipeline_rank)]
+                [
+                    build_layer(i + 1 + offset)
+                    for i in range(self.num_layers_per_pipeline_rank)
+                ]
             )
 
         # # TODO: add back standalone_embedding_stage
@@ -136,7 +149,7 @@ class TransformerBlock(MegatronModule):
 
             return custom_forward
 
-        if self.config.recompute_method == 'uniform':
+        if self.config.recompute_method == "uniform":
             # Uniformly divide the total number of Transformer layers and checkpoint
             # the input activation of each divided chunk.
             # A method to further reduce memory usage reducing checkpoints.
@@ -151,14 +164,17 @@ class TransformerBlock(MegatronModule):
 
                 l += self.recompute_num_layers
 
-        elif self.config.recompute_method == 'block':
+        elif self.config.recompute_method == "block":
             # Checkpoint the input activation of only a set number of individual
             # Transformer layers and skip the rest.
             # A method fully use the device memory removing redundant re-computation.
             for l in range(self.num_layers_per_pipeline_rank):
                 if l < self.config.recompute_num_layers:
                     hidden_states = tensor_parallel.checkpoint(
-                        custom(l, l + 1), self.config.distribute_saved_activations, hidden_states, attention_mask,
+                        custom(l, l + 1),
+                        self.config.distribute_saved_activations,
+                        hidden_states,
+                        attention_mask,
                     )
                 else:
                     hidden_states = custom(l, l + 1)(hidden_states, attention_mask)
@@ -200,7 +216,11 @@ class TransformerBlock(MegatronModule):
         #   likely redundant, since p2p_communication.py (likely originator)
         #   already creates viewless tensors. That said, make_viewless_tensor()
         #   is called here to be future-proof and corner-case-proof.
-        hidden_states = make_viewless_tensor(inp=hidden_states, requires_grad=True, keep_graph=True,)
+        hidden_states = make_viewless_tensor(
+            inp=hidden_states,
+            requires_grad=True,
+            keep_graph=True,
+        )
 
         if self.config.sequence_parallel:
             rng_context = tensor_parallel.get_cuda_rng_tracker().fork()
@@ -209,11 +229,15 @@ class TransformerBlock(MegatronModule):
 
         with rng_context:
             # Forward pass.
-            if self.config.recompute_granularity == 'full':
-                hidden_states = self._checkpointed_forward(hidden_states=hidden_states, attention_mask=attention_mask)
+            if self.config.recompute_granularity == "full":
+                hidden_states = self._checkpointed_forward(
+                    hidden_states=hidden_states, attention_mask=attention_mask
+                )
             else:
                 for layer in self.layers:
-                    hidden_states = layer(hidden_states=hidden_states, attention_mask=attention_mask)
+                    hidden_states = layer(
+                        hidden_states=hidden_states, attention_mask=attention_mask
+                    )
 
         # Final layer norm.
         if self.post_process and self.post_layer_norm:

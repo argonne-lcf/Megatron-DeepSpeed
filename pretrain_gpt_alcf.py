@@ -53,7 +53,8 @@ t0_setup = time.time()
 
 # ---- [SETUP COMMS] ------------------------
 # if str(os.environ.get('LAUNCH_CMD', 'mpich')).lower() == 'mpich':
-RANK = ezpz.setup_torch(backend="deepspeed")  # , timeout=7200)
+# RANK = ezpz.setup_torch(backend="deepspeed")  # , timeout=7200)
+RANK = ezpz.setup_torch()
 dt_setup = time.time() - t0_setup
 # else:
 #     RANK = ezpz.get_rank()
