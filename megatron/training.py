@@ -1331,38 +1331,11 @@ def train(
             params_norm = calc_params_l2_norm(model)
         
         ### Begin MuP Code ###
-        if args.enable_mup and args.mup_coord_check:
+        if (args.enable_mup or args.enable_depth_scale) and args.mup_coord_check:
             if iteration <=20:
                 mup_coord_check(model)
-
-        '''
-        temp_list = []
-        for name, params in model[0].named_parameters():
-            
-            if 'word_embeddings' in name:
-                print("-------------------------------------------")
-                print(name)
-                print( (params.data.float()).abs().mean().item() )
-                temp_list.append((params.data.float()).abs().mean().item())
-            elif '8.mlp.dense_4h_to' in name:
-                print("-------------------------------------------")
-                print(name)
-                print( (params.data.float()).abs().mean().item() )
-                temp_list.append((params.data.float()).abs().mean().item())
-            elif 'output_layer' in name:
-                print("-------------------------------------------")
-                print(name)
-                print( (params.data.float()).abs().mean().item() )
-                temp_list.append((params.data.float()).abs().mean().item())
-        
-        print(temp_list)
-        with open("mup_coord_check/adamw_h2048_s123456.txt", "a") as file:
-
-            for item in temp_list:
-                file.write( "%s " % item )
-            file.write('\n')
-        '''
         ### End MuP Code ###
+
         report_memory_flag = training_log(
             loss_dict,
             total_loss_dict,

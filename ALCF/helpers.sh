@@ -227,7 +227,7 @@ setup_run_cmd() {
     export MUP_BASE_WIDTH=${MUP_BASE_WIDTH:-256}
     export MUP_MUL=$(( $HIDDEN / $MUP_BASE_WIDTH ))
     mup_flags+=(
-    		#"--enable-mup"
+    		"--enable-mup"
 		"--mup-coord-check=True"
 		"--mup-hidden-weights-scale=${MUP_MUL}"
 		"--mup-hidden-lr-scale=${MUP_MUL}"

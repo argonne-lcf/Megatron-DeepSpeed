@@ -144,7 +144,7 @@ def mup_coord_check(model):
             print(name)
             print( (params.data.float()).abs().mean().item() )
             temp_list.append((params.data.float()).abs().mean().item())
-        elif 'layers.9.' in name: 
+        elif 'layers.4.' in name: 
             print("-------------------------------------------")
             print(name)
             print( (params.data.float()).abs().mean().item() )
@@ -157,7 +157,8 @@ def mup_coord_check(model):
         
     print(temp_list)
     
-    file_name = f"adamw_hidden{args.hidden_size}_ffn{args.ffn_hidden_size}_depth{args.num_layers}_s1234_v3.txt"
+    file_name = f"adamw_hidden{args.hidden_size}_ffn{args.ffn_hidden_size}_depth{args.num_layers}_s1234.txt"
+    #file_name = f"test_file.txt"
     with open(f"mup_coord_check/{file_name}", "a") as file:
         for item in temp_list:
             file.write( "%s " % item )

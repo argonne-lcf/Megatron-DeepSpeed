@@ -66,6 +66,17 @@ def get_param_groups(
     
     no_wd_no_scale_lr_depth_lr = []
     wd_mup_wd_no_scale_lr_depth_mup_lr = []
+    
+    mup_lr = 1.0
+    mup_wd = 1.0
+    depth_lr = 1.0
+
+    if args.enable_mup:
+        mup_lr = (args.mup_hidden_weights_scale) ** (-1)
+        mup_wd = args.mup_hidden_weights_scale
+    
+    if args.enable_depth_scale:
+        depth_lr = (args.depth_multiplier) ** (args.depth_alpha - 1)
     ### End MuP Code ###
     
     wd_no_scale_lr = []
@@ -74,6 +85,7 @@ def get_param_groups(
     no_wd_scale_lr = []
     galore_params = []
     target_modules_list = ["attn", "mlp"]
+    
     for module in modules:
         #print("-----------------AG DEBUG MODULE--------------------")
         #print(module)
@@ -139,9 +151,9 @@ def get_param_groups(
     if len(no_wd_scale_lr):
         param_groups.append({'name': 'no_wd_scale_lr', 'params': no_wd_scale_lr, 'wd_mult': 0.0, 'lr_mult': lr_mult, '_mup_lr_mult':1.0, '_depth_lr_mult':1.0, '_mup_wd_mult':1.0, '_depth_wd_mult':1.0})
     if len(no_wd_no_scale_lr_depth_lr):
-        param_groups.append({'name': 'no_wd_no_scale_lr_depth_lr', 'params': no_wd_no_scale_lr_depth_lr, 'wd_mult': 0.0, 'lr_mult': 1.0, '_mup_lr_mult':1.0, '_depth_lr_mult':args.depth_multiplier ** (args.depth_alpha - 1), '_mup_wd_mult':1.0, '_depth_wd_mult':1.0})
+        param_groups.append({'name': 'no_wd_no_scale_lr_depth_lr', 'params': no_wd_no_scale_lr_depth_lr, 'wd_mult': 0.0, 'lr_mult': 1.0, '_mup_lr_mult':mup_lr, '_depth_lr_mult':depth_lr, '_mup_wd_mult':mup_wd, '_depth_wd_mult':1.0})
     if len(wd_mup_wd_no_scale_lr_depth_mup_lr):
-        param_groups.append({'name': 'wd_mup_wd_no_scale_lr_depth_mup_lr', 'params': wd_mup_wd_no_scale_lr_depth_mup_lr, 'wd_mult': 1.0, 'lr_mult': 1.0, '_mup_lr_mult':1.0, '_depth_lr_mult':1.0, '_mup_wd_mult':args.mup_hidden_weights_scale, '_depth_wd_mult':1.0}) ###  '_mup_lr_mult':args.mup_hidden_lr_scale ** (-1),'_depth_lr_mult':args.depth_multiplier ** (args.depth_alpha - 1),
+        param_groups.append({'name': 'wd_mup_wd_no_scale_lr_depth_mup_lr', 'params': wd_mup_wd_no_scale_lr_depth_mup_lr, 'wd_mult': 1.0, 'lr_mult': 1.0, '_mup_lr_mult': mup_lr, '_depth_lr_mult': depth_lr, '_mup_wd_mult':mup_wd, '_depth_wd_mult':1.0}) ###  '_mup_lr_mult':args.mup_hidden_lr_scale ** (-1),'_depth_lr_mult':args.depth_multiplier ** (args.depth_alpha - 1),
 
     return param_groups
 
@@ -173,10 +185,13 @@ def get_megatron_optimizer(
     optimizer = None
 
     ### Begin MuP Code ### -- args is a mutable object
-    if args.enable_mup:
-        args.adam_eps = args.adam_eps * (args.mup_hidden_lr_scale ** (-1))
-    elif args.enable_mup and args.enable_depth_scale:
+    if args.enable_mup and args.enable_depth_scale:
         args.adam_eps = args.adam_eps * (args.mup_hidden_lr_scale ** (-1)) * (args.depth_multiplier ** (-args.depth_alpha))
+    elif args.enable_mup:
+        args.adam_eps = args.adam_eps * (args.mup_hidden_lr_scale ** (-1))
+    elif args.enable_depth_scale:
+        args.adam_eps = args.adam_eps * (args.depth_multiplier ** (-args.depth_alpha))
+
     ### End MuP Code ###
 
 

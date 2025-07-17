@@ -116,7 +116,7 @@ class ParallelMLP(MegatronModule):
         
         ### Begin MuP Code ###
         if config.enable_mup:
-            load_init_method = init_method_normal(( config.mup_hidden_weights_scale ** (-1) ) * config.init_method_std )
+            load_init_method = init_method_normal(( config.mup_hidden_weights_scale ** (-1/2) ) * config.init_method_std )
         else:
             load_init_method = config.init_method
         ### End MuP Code ###
@@ -302,7 +302,7 @@ class CoreAttention(MegatronModule):
         # ===================================
         # Raw attention scores. [b, np, s, s]
         # ===================================
-
+        
         # [b, np, sq, sk]
         output_size = (
             query_layer.size(1),
@@ -426,9 +426,10 @@ class FlashSelfAttention(torch.nn.Module):
         self.causal = causal
         self.softmax_scale = softmax_scale
         self.dropout_p = attention_dropout
+        args = get_args()
 
         # Use FlashAttention-2 when args.use_flash_attn_v2 is True
-        args = get_args()
+        #args = get_args()
         self.use_flash_attn_builder_v1 = False
         self.use_flash_attn_builder_v2 = False
         self.use_flash_attn = False
@@ -503,6 +504,15 @@ class FlashSelfAttention(torch.nn.Module):
             )
             dropout_p = 0
 
+        ### Begin MuP Code ###
+        args = get_args()
+
+        if args.enable_mup:
+            #print("---------------------------------- MUP FLASH ATTN -------------------------")
+            #print( type(self.softmax_scale) )
+            self.softmax_scale = (args.hidden_size ** (-1)) * (args.depth_base ** (1/2))
+        ### End MuP Code ###
+
         if self.use_flash_attn:
             output = self.flash_attn_func(
                 q,
@@ -562,7 +572,8 @@ class FlashSelfAttentionTriton(torch.nn.Module):
         self.causal = causal
         self.softmax_scale = softmax_scale
         self.dropout_p = attention_dropout
-
+        
+        
     def forward(self, q, k, v):
         """Implements the multihead softmax attention.
         Arguments
@@ -674,7 +685,7 @@ class ParallelAttention(MegatronModule):
         ### Begin MuP Code ###
         if config.enable_mup:
             print("------------------SCALING VARIANCE OF ATTN----------------")
-            load_init_method = init_method_normal( (config.mup_hidden_weights_scale ** (-1)) * config.init_method_std)
+            load_init_method = init_method_normal( (config.mup_hidden_weights_scale ** (-1/2)) * config.init_method_std)
         else:
             load_init_method = config.init_method
         ### End MuP Code ###
@@ -716,7 +727,7 @@ class ParallelAttention(MegatronModule):
             )
         elif self.use_flash_attn:
             local_attn = FlashSelfAttention(
-                causal=True, attention_dropout=config.attention_dropout
+                causal=True, attention_dropout=config.attention_dropout, softmax_scale=(args.hidden_size ** (-1)) * (args.depth_base ** (1/2))
             )
         else:
             local_attn = CoreAttention(self.layer_number, config, self.attn_mask_type)
@@ -967,7 +978,7 @@ class ParallelAttention(MegatronModule):
                     q_pos_emb = q_pos_emb[:sequence_end, :, :, :]
                 k_pos_emb = k_pos_emb[:sequence_end, :, :, :]
                 rotary_pos_emb = (q_pos_emb, k_pos_emb)
-
+        
         # ==================================
         # core attention computation
         # ==================================
@@ -981,6 +992,17 @@ class ParallelAttention(MegatronModule):
             # absolute positional embedding.
             # otherwise, only relative positional embedding takes effect
             # value_layer = apply_rotary_pos_emb(value_layer, k_pos_emb)
+        
+        ### Begin MuP Code ###
+        #args = get_args()
+
+        #if args.enable_mup:
+            #print("------------------- QK rescaling ---------------------------")
+            #query_layer = (args.mup_hidden_weights_scale ** (-1/2)) * query_layer
+            #key_layer = (args.mup_hidden_weights_scale ** (-1/2)) * key_layer
+ 
+        ### End MuP Code ###
+
 
         if self.enable_ds_sequence_parallel:
             batch_dim_idx = 1
@@ -1041,7 +1063,7 @@ class ParallelAttention(MegatronModule):
         # =================
 
         output, bias = self.dense(context_layer)
-
+            
         return output, bias
 
 
@@ -1501,6 +1523,11 @@ class ParallelTransformerLayer(MegatronModule):
 
         #if args.enable_mup:
         #    attention_output = ( args.mup_hidden_weights_scale ** (-1) ) * attention_output
+        
+        residual_mult = 1.0
+        if args.enable_depth_scale:
+            residual_mult = ( args.depth_multiplier ) ** (-args.depth_alpha)
+
         ### End MuP Code ###
 
         # Residual connection.
@@ -1523,17 +1550,17 @@ class ParallelTransformerLayer(MegatronModule):
                 bias_dropout_add_func = get_bias_dropout_add(self.training)
 
             if attention_bias is not None:
-                attention_bias = attention_bias.expand_as(residual)
+                attention_bias = residual_mult * attention_bias.expand_as(residual) ### Changed here
             with self.bias_dropout_add_exec_handler():
                 layernorm_input = bias_dropout_add_func(
-                    attention_output, attention_bias, residual, self.hidden_dropout
-                )
+                    residual_mult * attention_output, attention_bias, residual, self.hidden_dropout
+                ) ### Mup Change Here
         else:
             out = torch.nn.functional.dropout(
-                attention_output + attention_bias,
+                residual_mult * (attention_output + attention_bias),
                 p=self.hidden_dropout,
                 training=self.training,
-            )
+            )   ### MuP Change Here
             layernorm_input = residual + self.drop_path(out)
 
         # Layer norm post the self attention.
@@ -1600,11 +1627,11 @@ class ParallelTransformerLayer(MegatronModule):
 
         if self.drop_path is None:
             if mlp_bias is not None:
-                mlp_bias = mlp_bias.expand_as(residual)
+                mlp_bias = residual_mult * mlp_bias.expand_as(residual) ### Change here
             with self.bias_dropout_add_exec_handler():
                 output = bias_dropout_add_func(
-                    mlp_output, mlp_bias, residual, self.hidden_dropout
-                )
+                    residual_mult * mlp_output, mlp_bias, residual, self.hidden_dropout
+                ) ### MuP Change Here
 
             # Jit compiled function creates 'view' tensor. This tensor
             # potentially gets saved in the MPU checkpoint function context,
@@ -1618,7 +1645,7 @@ class ParallelTransformerLayer(MegatronModule):
 
         else:
             if mlp_bias is not None:
-                mlp_output = mlp_output + mlp_bias
+                mlp_output = residual_mult * (mlp_output + mlp_bias) ### MuP Change Here
             out = torch.nn.functional.dropout(
                 mlp_output, p=self.hidden_dropout, training=self.training
             )
