@@ -1,5 +1,6 @@
 import queue
 
+
 class WeightGradStore:
 
     cache = []

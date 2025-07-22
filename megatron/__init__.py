@@ -12,10 +12,6 @@ from .global_vars import get_tensorboard_writer
 from .global_vars import get_wandb_writer
 from .global_vars import get_adlr_autoresume
 from .global_vars import get_timers
-from .initialize  import initialize_megatron
+from .initialize import initialize_megatron
 
-from .utils import (print_rank_0,
-                    is_last_rank,
-                    print_rank_last,
-                    is_rank_0,
-                    is_aml)
+from .utils import (print_rank_0, is_last_rank, print_rank_last, is_rank_0, is_aml)

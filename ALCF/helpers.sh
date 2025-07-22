@@ -187,20 +187,6 @@ setup_run_cmd() {
             "--ffn-hidden-size ${FFN_HIDDEN_SIZE}"
         )
     fi
-    # min_lr=$(python3 -c 'print(f"{2 / (10 ** 5):.8f}")')
-    # "--min-lr ${LR:-${min_lr}}"  # 2e-5
-    # "--min-lr ${MIN_LR:-"2e-6"}"  # 2e-5
-    export LR="${LR:-0.0002}"
-    export LR_DECAY_STYLE="${LR_DECAY_STYLE:-cosine}"
-    export LR_WARMUP_FRAC="${LR_WARMUP_FRAC:-0.05}"
-    lr_flags=(
-        "--lr ${LR}"
-        "--lr-decay-style ${LR_DECAY_STYLE}"
-        "--lr-warmup-fraction ${LR_WARMUP_FRAC}"
-    )
-    if [[ -n "${LR_DECAY_ITERS:-}" ]]; then
-        lr_flags+=("--lr-decay-iters ${LR_DECAY_ITERS:-}")
-    fi
 
     tb_flags=()
     if [[ -z "${NO_TENSORBOARD:-}" ]]; then
@@ -552,13 +538,13 @@ get_grad_acc_steps_on_aurora() {
         exit 1
     fi
     nhosts=$(wc -l <"${hf}")
-    if [[ "${nhosts}" -ge 256 ]]; then
+    if [[ "${nhosts}" -ge 256 ]]; then                           #   n >= 256
         gas=1
-    elif [[ 128 -le "${nhosts}" && "${nhosts}" -lt 256 ]]; then
+    elif [[ 128 -le "${nhosts}" && "${nhosts}" -lt 256 ]]; then  # 128 <= n < 256
         gas=2
-    elif [[ 32 -lt "${nhosts}" && "${nhosts}" -lt 129 ]]; then
+    elif [[ 32 -lt "${nhosts}" && "${nhosts}" -lt 129 ]]; then   #  32 < n  < 128
         gas=4
-    elif [[ 16 -le "${nhosts}" && "${nhosts}" -le 32 ]]; then
+    elif [[ 16 -le "${nhosts}" && "${nhosts}" -le 32 ]]; then    #  16 <= n < 32
         gas=8
     else
         gas=16
@@ -605,6 +591,15 @@ get_model_arch_7B() {
     export NUM_KV_HEAD=${NUM_KV_HEAD:-8}             # GROUP ATTENTION
     export FFN_HIDDEN_SIZE=${FFN_HIDDEN_SIZE:-11008} # FFN HIDDEN SIZE
     export SEQ=${SEQ:-4096}                          # SEQ_LEN: 4096
+}
+
+get_model_arch_llama3_3B() {
+    export HEADS=32
+    export NLAYERS=28
+    export HIDDEN=3072
+    export NUM_KV_HEAD=8
+    export FFN_HIDDEN_SIZE=8192
+    export SEQ=8192
 }
 
 # get_model_arch_70B() {
@@ -735,6 +730,8 @@ setParams() {
     # printf "Using model architecture: %s\n" "$(printGreen "${model_arch}")"
     if [[ "${MODEL_ARCH:-}" == "70B" ]]; then
         get_model_arch_70B
+    elif [[ "${MODEL_ARCH:-}" == "3B" ]]; then
+        get_model_arch_llama3_3B
     else
         get_model_arch_7B
     fi
@@ -757,6 +754,18 @@ setParams() {
     #     # Use best set of CCL env vars from Gordon Bell runs on Aurora
     #     set_ccl_vars_on_aurora
     # fi
+    # + --[LR Settings]------------------------------------------------------+
+    export LR="${LR:-0.0002}"
+    export LR_DECAY_STYLE="${LR_DECAY_STYLE:-cosine}"
+    export LR_WARMUP_FRAC="${LR_WARMUP_FRAC:-0.05}"
+    lr_flags=(
+        "--lr ${LR}"
+        "--lr-decay-style ${LR_DECAY_STYLE}"
+        "--lr-warmup-fraction ${LR_WARMUP_FRAC}"
+    )
+    if [[ -n "${LR_DECAY_ITERS:-}" ]]; then
+        lr_flags+=("--lr-decay-iters ${LR_DECAY_ITERS:-}")
+    fi
     # +---[Run Settings]------------------------------------------------------+
     export ZERO_STAGE=${ZERO_STAGE:-1}                                                    # ZERO OFFLOADING STAGE
     export MICRO_BATCH=${MICRO_BATCH:-1}                                                  # MICRO BATCH SIZE
@@ -821,21 +830,6 @@ set_args() {
     fi
     ds_args+=("--deepspeed_config=${DS_CONFIG}")
     ds_args+=("--zero-stage=$ZERO_STAGE")
-
-    # if [[ "${ZERO_STAGE}" == 3 ]]; then
-    #     ds_args+=("--use-mics")
-    # fi
-
-    # ds_args=" "
-    # ds_args=" --deepspeed ${ds_args}"
-    # if [[ $PP == 1 ]]; then
-    #     ds_args=" --no-pipeline-parallel ${ds_args}"
-    # fi
-    # ds_args=" --deepspeed_config=$DS_CONFIG ${ds_args}"
-    # ds_args="--zero-stage=$ZERO_STAGE ${ds_args}"
-    # if [[ "${ZERO_STAGE}" == 3 ]]; then
-    #     ds_args="--use-mics ${ds_args}"
-    # fi
     if [[ -n "${USE_ACTIVATION_CHECKPOINTING:-}" ]]; then
         echo "!! Caught USE_ACTIVATION_CHECKPOINTING=${USE_ACTIVATION_CHECKPOINTING} !!"
         ds_args+=("--deepspeed-activation-checkpointing")
@@ -869,46 +863,6 @@ make_ds_hostfile() {
     cat "${hf}" >"${hostfile_deepspeed}"
     sed -e "s/$/ slots=${GPUS_PER_NODE}/" -i "${hostfile_deepspeed}"
 }
-
-###########################################
-# ezpz_setup
-#
-# 1. Clone [`saforem2/ezpz`](https://github.com/saforem2/ezpz) (if necessary)
-#    to `"${WORKING_DIR}/deps/ezpz/"`
-#
-# 2. Source [`ezpz/src/ezpz/bin/utils.sh`](https://github.com/saforem2/ezpz/blob/main/src/ezpz/bin/utils.sh)
-#    - This provides `{ezpz_setup_python, ezpz_setup_job}` (called below)
-#
-# 3. Call `ezpz_setup_python` (from `ezpz/bin/utils.sh`):
-#    - This will setup conda + virtual enviroment
-#
-# 4. Call `ezpz_setup_job` (from `ezpz/bin/utils.sh`):
-#    - This will parse `$PBS_*` variables and build launch cmd
-#
-# 3. Call `_ezpz_install` (from `Megatron-DeepSpeed/ALCF/helpers.sh`):
-#    - Install ezpz from `"${WORKING_DIR}/depz/ezpz/"`
-###########################################
-# ezpz_setup() {
-#     source <()
-#     ezdir="${WORKING_DIR}/deps/ezpz"
-#     if [[ -d "${ezdir}" ]]; then
-#         echo "Found ezpz in ${ezdir}"
-#     else
-#         mkdir -p "$(dirname "${ezdir}")"
-#         git clone https://github.com/saforem2/ezpz "${ezdir}"
-#     fi
-#     # shellcheck source=../deps/ezpz/src/ezpz/bin/utils.sh
-#     source "${ezdir}/src/ezpz/bin/utils.sh" || exit
-#     ezpz_setup_python
-#     ezpz_setup_job "$@"
-#     ezpz_pip_loc=$(python3 -m pip list | grep ezpz | awk '{print $NF}')
-#     if [[ -z "${ezpz_pip_loc:-}" ]]; then
-#         printf "[ezpz_install] Installing ezpz from %s\n" "${ezdir}"
-#         python3 -m pip install -e "${ezdir}" --require-virtualenv
-#     else
-#         printf "[ezpz_install] Found ezpz @ %s\n" "${ezpz_pip_loc}"
-#     fi
-# }
 
 #######################################################################
 # ezpz_test: Run simple test to make sure all nodes in working order
@@ -948,7 +902,11 @@ get_output_prefix() {
     pre="${pre}_seq${SEQ}_gb${GLOBAL_BATCH}"
     pre="${pre}_sp${SP}_pp${PP}_tp${TP}_${DTYPE}_opt${OPT}"
     pre="${pre}_lr${LR}_lwf${LR_WARMUP_FRAC}"
+    local num_tokens_in_billions
+    num_tokens_in_billions=$((TRAIN_TOKENS / 10 ** 9))
+    pre="${pre}_ntok${num_tokens_in_billions}B"
     if [[ -n "${TOKENIZER_TYPE:-}" ]]; then
+        # _tok="${TOKENIZER_TYPE/Tokenizer//}" # Strip "Tokenizer" suffix if present
         _tok=$(echo "${TOKENIZER_TYPE}" | sed 's/Tokenizer//g') # noqa
         pre="${pre}_tok${_tok}"
     fi
@@ -1041,14 +999,20 @@ make_data() {
 install_dependencies() {
     depsfile="${WORKING_DIR}/ALCF/requirements/requirements.txt"
     echo "[install_dependencies] Ensuring all dependencies from ${depsfile} installed..."
-    python3 -m pip install -r "${depsfile}" --require-virtualenv 1>/dev/null
+    python3 -m pip install -r "${depsfile}" --require-virtualenv
     if [[ ! -x "$(command -v deepspeed)" ]]; then
-        mn=$(ezpz_get_machine_name)
+        printf "[install_dependencies] No 'deepspeed' command found on %s in %s\n" "$$(ezpz_get_machine_name)" "$(which python3)"
+        printf "[install_dependencies] Attempting to install deepspeed via pip...\n"
+        python3 -m pip install deepspeed --require-virtualenv || {
+            printf "[install_dependencies] Failed to install deepspeed via pip on %s\n" "$(ezpz_get_machine_name)"
+            # printf "[install_dependencies] !! No deepsepeed in %s\n" "$(which python3)"
+            return 1
+        }
+        # mn=$(ezpz_get_machine_name)
         # if [[ "${mn}" == aurora* || "${mn}" == sunspot* ]]; then
         #     install_deepspeed_for_xpu || exit
         # fi
-        printf "[install_dependencies] No 'deepspeed' command found on %s" "${mn}"
-        printf "[install_dependencies] !! No deepsepeed in %s" "$(which python3)"
+        # printf "[install_dependencies] !! No deepsepeed in %s" "$(which python3)"
     fi
 }
 

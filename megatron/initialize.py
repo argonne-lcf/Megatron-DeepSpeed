@@ -31,19 +31,24 @@ from deepspeed.ops.op_builder.builder import OpBuilder
 is_rocm_pytorch = OpBuilder.is_rocm_pytorch()
 
 
-def initialize_megatron(extra_args_provider=None, args_defaults={},
-                        ignore_unknown_args=False, allow_no_cuda=False, external_args={}):
+def initialize_megatron(
+    extra_args_provider=None,
+    args_defaults={},
+    ignore_unknown_args=False,
+    allow_no_cuda=False,
+    external_args={},
+):
     """Set global variables, initialize distributed, and
     set autoresume and random seeds.
-    `allow_no_cuda` should not be set unless using megatron for cpu only 
-    data processing. In general this arg should not be set unless you know 
+    `allow_no_cuda` should not be set unless using megatron for cpu only
+    data processing. In general this arg should not be set unless you know
     what you are doing.
-    Returns a function to finalize distributed env initialization 
+    Returns a function to finalize distributed env initialization
     (optionally, only when args.lazy_mpu_init == True)
     """
     if not allow_no_cuda:
         # Make sure cuda is available.
-        assert get_accelerator().is_available(), 'Megatron requires accelerator.'
+        assert get_accelerator().is_available(), "Megatron requires accelerator."
 
     # Parse arguments
     args = parse_args(extra_args_provider, ignore_unknown_args)
@@ -52,8 +57,8 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
         if key in args:
             setattr(args, key, external_args[key])
 
-    if args.use_checkpoint_args or args_defaults.get('use_checkpoint_args', False):
-        assert args.load is not None, '--use-checkpoints-args requires --load argument'
+    if args.use_checkpoint_args or args_defaults.get("use_checkpoint_args", False):
+        assert args.load is not None, "--use-checkpoints-args requires --load argument"
         load_args_from_checkpoint(args)
 
     validate_args(args, args_defaults)
@@ -67,16 +72,16 @@ def initialize_megatron(extra_args_provider=None, args_defaults={},
         args = get_args()
         # Pytorch distributed.
         _initialize_distributed()
-        
+
         # Random seeds for reproducibility.
         if args.rank == 0:
-            print('> setting random seeds to {} ...'.format(args.seed))
+            print("> setting random seeds to {} ...".format(args.seed))
         _set_random_seed(args.seed, args.data_parallel_random_init)
 
     args = get_args()
-    if  args.lazy_mpu_init:
+    if args.lazy_mpu_init:
         # TODO is this still a necessary option?
-        args.use_cpu_initialization=True
+        args.use_cpu_initialization = True
         # delayed initialization of DDP-related stuff
         # We only set basic DDP globals
         mpu.set_tensor_model_parallel_world_size(args.tensor_model_parallel_size)
@@ -111,15 +116,19 @@ def _compile_dependencies():
     # TODO: move this to ninja
     if is_rank_0():
         start_time = time.time()
-        print('> compiling dataset index builder ...')
+        print("> compiling dataset index builder ...")
         from megatron.data.dataset_utils import compile_helper
+
         compile_helper()
-        print('>>> done with dataset index builder. Compilation time: {:.3f} '
-              'seconds'.format(time.time() - start_time), flush=True)
-        
-    if not get_accelerator().device_name() == 'cuda':
+        print(
+            ">>> done with dataset index builder. Compilation time: {:.3f} "
+            "seconds".format(time.time() - start_time),
+            flush=True,
+        )
+
+    if not get_accelerator().device_name() == "cuda":
         print(">fused kernel is only supported in cuda, skip loading fused kernel")
-        return 
+        return
 
     if args.use_dataset_only:
         return
@@ -129,27 +138,36 @@ def _compile_dependencies():
 
     # Custom kernel constraints check.
     seq_len = args.seq_length
-    attn_batch_size = \
-        (args.num_attention_heads / args.tensor_model_parallel_size) * \
-        args.micro_batch_size
+    attn_batch_size = (
+        args.num_attention_heads / args.tensor_model_parallel_size
+    ) * args.micro_batch_size
     # Constraints on sequence length and attn_batch_size to enable warp based
     # optimization and upper triangular optimization (for causal mask)
-    custom_kernel_constraint = seq_len > 16 and seq_len <=4096 and \
-        seq_len % 4 == 0 and attn_batch_size % 4 == 0
+    custom_kernel_constraint = (
+        seq_len > 16
+        and seq_len <= 4096
+        and seq_len % 4 == 0
+        and attn_batch_size % 4 == 0
+    )
     # Print a warning.
-    if not ((args.fp16 or args.bf16) and
-            custom_kernel_constraint and
-            args.masked_softmax_fusion):
+    if not (
+        (args.fp16 or args.bf16)
+        and custom_kernel_constraint
+        and args.masked_softmax_fusion
+    ):
         if args.rank == 0:
-            print('WARNING: constraints for invoking optimized'
-                  ' fused softmax kernel are not met. We default'
-                  ' back to unfused kernel invocations.', flush=True)
-    
+            print(
+                "WARNING: constraints for invoking optimized"
+                " fused softmax kernel are not met. We default"
+                " back to unfused kernel invocations.",
+                flush=True,
+            )
+
     # Always build on rank zero first.
     if is_rank_0():
         start_time = time.time()
-        print('> compiling and loading fused kernels ...', flush=True)
-        if get_accelerator().device_count() > 0: # Skip when CPU-only
+        print("> compiling and loading fused kernels ...", flush=True)
+        if get_accelerator().device_count() > 0:  # Skip when CPU-only
             fused_kernels.load(args)
         torch.distributed.barrier()
     else:
@@ -161,13 +179,15 @@ def _compile_dependencies():
     # the lock is released.
     torch.distributed.barrier()
     if is_rank_0():
-        print('>>> done with compiling and loading fused kernels. '
-              'Compilation time: {:.3f} seconds'.format(
-                  time.time() - start_time), flush=True)
+        print(
+            ">>> done with compiling and loading fused kernels. "
+            "Compilation time: {:.3f} seconds".format(time.time() - start_time),
+            flush=True,
+        )
 
 
 def setup_deepspeed_random_and_activation_checkpointing(args):
-    '''Optional DeepSpeed Activation Checkpointing features.
+    """Optional DeepSpeed Activation Checkpointing features.
     Gives access to partition activations, contiguous memory optimizations
     and cpu checkpointing.
     Activation checkpoint requires keep track of the random states
@@ -177,9 +197,13 @@ def setup_deepspeed_random_and_activation_checkpointing(args):
     Since they are used in places outside of activation checkpointing,
     we overwrite them to maintain consistency.
     This must be called before all the calls to mpu.model_parallel_cuda_manual_seed
-    '''
+    """
     num_layers = args.num_layers // args.checkpoint_num_layers
-    num_layers = num_layers if args.num_layers % args.checkpoint_num_layers == 0 else num_layers + 1
+    num_layers = (
+        num_layers
+        if args.num_layers % args.checkpoint_num_layers == 0
+        else num_layers + 1
+    )
     if args.split_transformers:
         num_layers *= 2
 
@@ -191,7 +215,8 @@ def setup_deepspeed_random_and_activation_checkpointing(args):
         num_checkpoints=num_layers,
         checkpoint_in_cpu=args.checkpoint_in_cpu,
         synchronize=args.synchronize_each_layer,
-        profile=args.profile_backward)
+        profile=args.profile_backward,
+    )
 
 
 def _initialize_distributed():
@@ -201,24 +226,28 @@ def _initialize_distributed():
     if torch.distributed.is_initialized():
 
         if args.rank == 0:
-            print('torch distributed is already initialized, '
-                  'skipping initialization ...', flush=True)
+            print(
+                "torch distributed is already initialized, "
+                "skipping initialization ...",
+                flush=True,
+            )
         args.rank = torch.distributed.get_rank()
         args.world_size = torch.distributed.get_world_size()
 
     else:
         if args.rank == 0:
-            print('> initializing torch distributed ...', flush=True)
+            print("> initializing torch distributed ...", flush=True)
         # Manually set the device ids.
         if device_count > 0:
             device = args.rank % device_count
             if args.local_rank is not None:
-                assert args.local_rank == device, \
-                    'expected local-rank to be the same as rank % device-count.'
+                assert (
+                    args.local_rank == device
+                ), "expected local-rank to be the same as rank % device-count."
             else:
                 args.local_rank = device
 
-            get_accelerator().set_device(device) # only do so when device_count > 0
+            get_accelerator().set_device(device)  # only do so when device_count > 0
 
     if args.enable_zbh1_pipeline:
         deepspeed.runtime.pipe.schedule.TrainSchedule = ZeroBubbleH1Pipeline
@@ -235,14 +264,16 @@ def _initialize_distributed():
         if not torch.distributed.is_initialized():
             torch.distributed.init_process_group(
                 backend=get_accelerator().communication_backend_name(),
-                world_size=args.world_size, rank=args.rank,
-                timeout=timedelta(minutes=args.distributed_timeout_minutes))
+                world_size=args.world_size,
+                rank=args.rank,
+                timeout=timedelta(minutes=args.distributed_timeout_minutes),
+            )
 
     # Set the tensor model-parallel, pipeline model-parallel, and
     # data-parallel communicators.
     if device_count > 0:
         if mpu.model_parallel_is_initialized():
-            print('model parallel is already initialized')
+            print("model parallel is already initialized")
         else:
             if args.ds_sequence_parallel_size > 1 and args.sequence_parallel:
                 raise RuntimeError(
@@ -251,17 +282,23 @@ def _initialize_distributed():
                     f"Remove --sequence_parallel to use DeepSpeed's sequence parallel."
                 )
 
-            mpu.initialize_model_parallel(args.tensor_model_parallel_size,
-                                           args.pipeline_model_parallel_size,
-                                           args.ds_sequence_parallel_size,
-                                           args.virtual_pipeline_model_parallel_size,
-                                           args.pipeline_model_parallel_split_rank,
-                                           use_distributed_optimizer=args.use_distributed_optimizer)
+            mpu.initialize_model_parallel(
+                args.tensor_model_parallel_size,
+                args.pipeline_model_parallel_size,
+                args.ds_sequence_parallel_size,
+                args.virtual_pipeline_model_parallel_size,
+                args.pipeline_model_parallel_split_rank,
+                use_distributed_optimizer=args.use_distributed_optimizer,
+            )
             if args.rank == 0:
-                print(f'> initialized tensor model parallel with size '
-                      f'{mpu.get_tensor_model_parallel_world_size()}')
-                print(f'> initialized pipeline model parallel with size '
-                      f'{mpu.get_pipeline_model_parallel_world_size()}')
+                print(
+                    f"> initialized tensor model parallel with size "
+                    f"{mpu.get_tensor_model_parallel_world_size()}"
+                )
+                print(
+                    f"> initialized pipeline model parallel with size "
+                    f"{mpu.get_pipeline_model_parallel_world_size()}"
+                )
 
     if args.deepspeed and args.deepspeed_activation_checkpointing:
         setup_deepspeed_random_and_activation_checkpointing(args)
@@ -294,7 +331,7 @@ def _set_random_seed(seed_, data_parallel_random_init=False):
         if get_accelerator().device_count() > 0:
             tensor_parallel.model_parallel_cuda_manual_seed(seed)
     else:
-        raise ValueError('Seed ({}) should be a positive integer.'.format(seed))
+        raise ValueError("Seed ({}) should be a positive integer.".format(seed))
 
 
 def write_args_to_tensorboard():
@@ -303,8 +340,7 @@ def write_args_to_tensorboard():
     writer = get_tensorboard_writer()
     if writer:
         for arg in vars(args):
-            writer.add_text(arg, str(getattr(args, arg)),
-                            global_step=args.iteration)
+            writer.add_text(arg, str(getattr(args, arg)), global_step=args.iteration)
 
 
 def _initialize_mem_buffs():
@@ -318,9 +354,11 @@ def _initialize_mem_buffs():
 def set_jit_fusion_options():
     """Set PyTorch JIT layer fusion options."""
     # flags required to enable jit fusion kernels
-    TORCH_MAJOR = int(torch.__version__.split('.')[0])
-    TORCH_MINOR = int(torch.__version__.split('.')[1])
-    if ((TORCH_MAJOR > 1) or (TORCH_MAJOR == 1 and TORCH_MINOR >= 10)) and not is_rocm_pytorch:
+    TORCH_MAJOR = int(torch.__version__.split(".")[0])
+    TORCH_MINOR = int(torch.__version__.split(".")[1])
+    if (
+        (TORCH_MAJOR > 1) or (TORCH_MAJOR == 1 and TORCH_MINOR >= 10)
+    ) and not is_rocm_pytorch:
         # nvfuser
         torch._C._jit_set_profiling_executor(True)
         torch._C._jit_set_profiling_mode(True)
@@ -340,7 +378,7 @@ def set_jit_fusion_options():
 
 
 def _warmup_jit_function():
-    """ Compilie JIT functions before the main training steps """
+    """Compilie JIT functions before the main training steps"""
     args = get_args()
     if args.bf16:
         dtype = torch.bfloat16
@@ -350,11 +388,20 @@ def _warmup_jit_function():
         dtype = torch.float32
 
     # Warmup fused bias+gelu
-    bias = torch.rand(args.ffn_hidden_size // args.tensor_model_parallel_size,
-                      dtype=dtype, device='cuda')
-    input = torch.rand((args.seq_length // args.ds_sequence_parallel_size, args.micro_batch_size,
-                        args.ffn_hidden_size // args.tensor_model_parallel_size),
-                       dtype=dtype, device='cuda')
+    bias = torch.rand(
+        args.ffn_hidden_size // args.tensor_model_parallel_size,
+        dtype=dtype,
+        device="cuda",
+    )
+    input = torch.rand(
+        (
+            args.seq_length // args.ds_sequence_parallel_size,
+            args.micro_batch_size,
+            args.ffn_hidden_size // args.tensor_model_parallel_size,
+        ),
+        dtype=dtype,
+        device="cuda",
+    )
     # Warmup JIT fusions with the input grad_enable state of both forward
     # prop and recomputation
     for bias_grad, input_grad in zip([True, True], [False, True]):
@@ -368,15 +415,33 @@ def _warmup_jit_function():
         seq_length = args.seq_length // mpu.get_tensor_model_parallel_world_size()
     else:
         seq_length = args.seq_length
-    input = torch.rand((seq_length // args.ds_sequence_parallel_size, args.micro_batch_size, args.hidden_size),
-                       dtype=dtype, device='cuda')
-    residual = torch.rand((seq_length // args.ds_sequence_parallel_size, args.micro_batch_size, args.hidden_size),
-                          dtype=dtype, device='cuda')
-    bias = torch.rand((args.hidden_size), dtype=dtype, device='cuda').expand_as(residual)
+    input = torch.rand(
+        (
+            seq_length // args.ds_sequence_parallel_size,
+            args.micro_batch_size,
+            args.hidden_size,
+        ),
+        dtype=dtype,
+        device="cuda",
+    )
+    residual = torch.rand(
+        (
+            seq_length // args.ds_sequence_parallel_size,
+            args.micro_batch_size,
+            args.hidden_size,
+        ),
+        dtype=dtype,
+        device="cuda",
+    )
+    bias = torch.rand((args.hidden_size), dtype=dtype, device="cuda").expand_as(
+        residual
+    )
     dropout_rate = 0.1
     # Warmup JIT fusions with the input grad_enable state of both forward
     # prop and recomputation
-    for input_grad, bias_grad, residual_grad in zip([False, True], [True, True], [True, True]):
+    for input_grad, bias_grad, residual_grad in zip(
+        [False, True], [True, True], [True, True]
+    ):
         input.requires_grad = input_grad
         bias.requires_grad = bias_grad
         residual.requires_grad = residual_grad

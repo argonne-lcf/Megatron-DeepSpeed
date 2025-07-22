@@ -60,7 +60,9 @@ class GPTModel(MegatronModule):
         # Embeddings.
         if self.pre_process:
             self.embedding = GPTEmbedding(
-                config=self.config, vocab_size=self.vocab_size, max_sequence_length=self.max_sequence_length,
+                config=self.config,
+                vocab_size=self.vocab_size,
+                max_sequence_length=self.max_sequence_length,
             )
 
         # Transformer.
@@ -81,20 +83,24 @@ class GPTModel(MegatronModule):
                 bias=False,
                 skip_bias_add=False,
                 gather_output=not self.parallel_output,
-                skip_weight_param_allocation=self.pre_process and self.share_embeddings_and_output_weights)
+                skip_weight_param_allocation=self.pre_process
+                and self.share_embeddings_and_output_weights,
+            )
 
-        if self.share_embeddings_and_output_weights and (self.pre_process or self.post_process):
+        if self.share_embeddings_and_output_weights and (
+            self.pre_process or self.post_process
+        ):
             self.initialize_last_stage_with_word_embeddings()
 
     def set_input_tensor(self, input_tensor):
-        """ See megatron.model.transformer.set_input_tensor()"""
+        """See megatron.model.transformer.set_input_tensor()"""
 
         # This is usually handled in schedules.py but some inference code still
         # gives us non-lists or None
         if not isinstance(input_tensor, list):
             input_tensor = [input_tensor]
 
-        assert len(input_tensor) == 1, 'input_tensor should only be length 1 for gpt'
+        assert len(input_tensor) == 1, "input_tensor should only be length 1 for gpt"
         self.decoder.set_input_tensor(input_tensor[0])
 
     def forward(
@@ -108,7 +114,9 @@ class GPTModel(MegatronModule):
 
         # Encoder embedding.
         if self.pre_process:
-            decoder_input = self.embedding(input_ids=input_ids, position_ids=position_ids)
+            decoder_input = self.embedding(
+                input_ids=input_ids, position_ids=position_ids
+            )
         else:
             # intermediate stage of pipeline
             # encoder will get hidden_states from encoder.input_tensor
@@ -116,7 +124,9 @@ class GPTModel(MegatronModule):
 
         # Run encoder.
         hidden_states = self.decoder(
-            hidden_states=decoder_input, attention_mask=attention_mask, inference_params=inference_params
+            hidden_states=decoder_input,
+            attention_mask=attention_mask,
+            inference_params=inference_params,
         )
 
         if not self.post_process:
@@ -153,7 +163,9 @@ class GPTModel(MegatronModule):
         # when we are using pipeline parallelism and sharing word
         # embeddings. Nothing to do if we aren't sharing weights or aren't using
         # pipeline parallelism.
-        if not self.share_embeddings_and_output_weights or (self.pre_process and self.post_process):
+        if not self.share_embeddings_and_output_weights or (
+            self.pre_process and self.post_process
+        ):
             return
 
         if self.post_process and not self.pre_process:
@@ -181,7 +193,9 @@ class GPTModel(MegatronModule):
         if torch.distributed.is_initialized():
             if parallel_state.is_rank_in_embedding_group():
                 weight = self.shared_embedding_or_output_weight()
-                torch.distributed.all_reduce(weight.data, group=parallel_state.get_embedding_group())
+                torch.distributed.all_reduce(
+                    weight.data, group=parallel_state.get_embedding_group()
+                )
 
         elif not getattr(GPTModel, "embedding_warning_printed", False):
             logging.getLogger(__name__).warning(
@@ -194,7 +208,7 @@ class GPTModel(MegatronModule):
             GPTModel.embedding_warning_printed = True
 
     # TODO: add distributed checkpointing
-    def state_dict_for_save_checkpoint(self, prefix='', keep_vars=False):
+    def state_dict_for_save_checkpoint(self, prefix="", keep_vars=False):
         pass
         # """For easy load."""
 

@@ -217,7 +217,16 @@ class Timers:
         for i, name in enumerate(names):
             rank_to_time = rank_name_to_time[:, i]
             # filter out the ones we did not have any timings for
-            rank_to_time = rank_to_time[rank_to_time > 0.0]
+            try:
+                rank_to_time = rank_to_time[rank_to_time > 0.0]
+            except Exception:
+                # this can happen if rank_to_time is not a tensor
+                raise Exception(
+                    "timer {} did not return a tensor, got {}".format(
+                        name, type(rank_to_time)
+                    )
+                )
+
             # If the timer exists:
             if rank_to_time.numel() > 0:
                 name_to_min_max_time[name] = (

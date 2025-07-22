@@ -5,8 +5,9 @@
 
 HERE=$(python3 -c 'import os; print(os.getcwd())') && export HERE
 GIT_BRANCH=$(git branch --show-current) && export GIT_BRANCH
-source <(curl -L https://bit.ly/ezpz-utils) || exit
-NO_COLOR=1 ezpz_setup_env || exit
+
+# shellcheck disable=SC1090
+source <(curl -L https://bit.ly/ezpz-utils) && ezpz_setup_env
 
 if  command -v "ezpz-test"; then
     log_message INFO "${GREEN}✓${RESET} ezpz is already installed."
