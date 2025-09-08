@@ -1,6 +1,12 @@
 # Megatron-DeepSpeed @ ALCF
 
 > [!IMPORTANT]
+> This is a (backup) branch created on 2025-09-08, prior to merging the PR from
+> [#88](https://github.com/argonne-lcf/Megatron-DeepSpeed/pull/88)
+
+---
+
+> [!IMPORTANT]
 > [`train_aGPT_7B.sh`](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/train_aGPT_7B.sh) is the main entry point for launching
 > distributed training on {Polaris, Aurora, Sunspot} @ ALCF.
 
