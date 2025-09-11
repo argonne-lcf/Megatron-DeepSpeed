@@ -1,3 +1,4 @@
+# noqa: E402
 # Copyright (C) 2024 Habana Labs, Ltd. an Intel Company.
 # Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 """Pretrain utilities."""
@@ -6,6 +7,8 @@ import time
 
 # The earliest we can measure the start time.
 _TRAIN_START_TIME = time.time()
+
+import ezpz
 
 from collections import OrderedDict
 from datetime import datetime
@@ -813,10 +816,17 @@ def setup_model_and_optimizer(
         if args.load is not None:
             timers = get_timers()
             assert timers is not None
-            timers("load-checkpoint", log_level=0).start(barrier=True)
+            # timers("load-checkpoint", log_level=0).start(barrier=True)
+            t0 = time.perf_counter()
             args.iteration = load_checkpoint(model, optimizer, opt_param_scheduler)
-            timers("load-checkpoint").stop(barrier=True)
-            timers.log(["load-checkpoint"])
+            ezpz.dist.synchronize()
+            dtl = time.perf_counter() - t0
+            try:
+                wandb.log({"timers/load-checkpoint": dtl}, step=args.iteration)
+            except Exception:
+                log.info(f"timers/load-checkpoint took {dtl:.3f} seconds")
+            # timers("load-checkpoint").stop(barrier=True)
+            # timers.log(["load-checkpoint"])
         else:
             args.iteration = 0
     else:

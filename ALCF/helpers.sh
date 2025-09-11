@@ -8,6 +8,7 @@
 ###############################################################################
 # Source:
 # [`ezpz/bin/utils.sh`](https://github.com/saforem2/ezpz/blob/main/src/ezpz/bin/utils.sh)
+# shellcheck disable=SC1090
 source <(curl -L https://bit.ly/ezpz-utils) >/dev/null || return 1
 ezpz_setup_job >/dev/null || exit
 ###############################################################################
@@ -47,7 +48,7 @@ helpers_main() {
 		echo "Using ${WORKING_DIR} as working directory..."
 	fi
 	export WORKING_DIR="${WORKING_DIR}"
-	printf "Using WORKING_DIR: %s\n" "${WORKING_DIR}"
+	log_message INFO "Using WORKING_DIR: ${WORKING_DIR}"  # \n" "${WORKING_DIR}"
 }
 
 ##############################################################################
@@ -153,7 +154,7 @@ setup_run_cmd() {
 	setupLauncher "${LAUNCH_WITH:-MPICH}" || exit
 	export data_cache_path="${CKPT_DIR}/${DATA_CACHE_PATH}" && mkdir -p "${data_cache_path}"
 	printf "\n"
-	echo "Using data_cache_path: ${data_cache_path}"
+	log_message INFO "Using data_cache_path: ${data_cache_path}"
 	##################################################################
 	# WARN: to disable Llama-type architectures, toggle via:
 	# `NO_LLAMA=1 bash train_llama_alcf.sh`
@@ -207,7 +208,7 @@ setup_run_cmd() {
 		"--adam-beta1=${ADAM_BETA1:-0.9}"
 		"--adam-beta2=${ADAM_BETA2:-0.95}"
 		"--adam-eps=${ADAM_EPS:-0.00001}"
-		"--blend-sample-in-corpus"
+		# "--blend-sample-in-corpus"
 		"--clip-grad=${CLIP_GRAD:-1.0}"
 		"--data-cache-path=${data_cache_path}"
 		"--data-file-list=${DATA_FILE_LIST:-${dfl_fallback}}"
@@ -260,7 +261,7 @@ setup_run_cmd() {
 		["SEQ"]="${SEQ}"
 		["FFN_HIDDEN_SIZE"]="${FFN_HIDDEN_SIZE}"
 		["NUM_KV_HEAD"]="${NUM_KV_HEAD}"
-		["USE_ACTIVATION_CHECKPOINTING"]="${USE_ACTIVATION_CHECKPOINTING:-0}"
+		["USE_ACTIVATION_CHECKPOINTING"]="${USE_ACTIVATION_CHECKPOINTING}"
 		["DTYPE"]="${DTYPE}"
 		["OPT"]="${OPT}"
 		# ["WEIGHT_DECAY"]="${WEIGHT_DECAY}"
@@ -270,7 +271,8 @@ setup_run_cmd() {
 		# ["CLIP_GRAD"]="${CLIP_GRAD:-1.0}"
 	)
 	for v in "${!arch_map[@]}"; do
-		printf "%s: %s\n" "$(printGreen "${v}")" "$(printBlue "${arch_map[${v}]}")"
+    log_message INFO "${GREEN}${v}${RESET}: ${BLUE}${arch_map[${v}]}${RESET}"
+		# printf "%s: %s\n" "$(printGreen "${v}")" "$(printBlue "${arch_map[${v}]}")"
 	done
 	printf "======================\n"
 	# "--adam-eps ${ADAM_EPS:-0.00001}"
@@ -279,7 +281,7 @@ setup_run_cmd() {
 	targs_cache="${cache_dir}/train_args.txt"
 	for arg in "${train_args[@]}"; do echo "${arg}" >>"${targs_cache}"; done
 	export TRAIN_ARGS=("$(printf '%s\n' "${train_args[@]}" | sort)")
-	printf "Training Arguments: %s\n" "$(printBlue "${TRAIN_ARGS[@]}")"
+	log_message INFO "Training Arguments: ${BLUE}${TRAIN_ARGS[@]}${RESET}"  # \n" "$(printBlue "${TRAIN_ARGS[@]}")"
 	export run_cmd=("${LAUNCHER}" "${train_args[@]}")
 }
 
@@ -319,14 +321,14 @@ setupSrun() {
 }
 
 printJobInfo() {
-	echo "++++++++++++++++++++++++++++++++++++++++++++++++++"
-	echo "- MPICH_DIR=${MPICH_DIR:-${MPI_ROOT:-}}"
-	echo "- Using $(which python3)"
-	echo "- WORLD_SIZE:${WORLD_SIZE-}"
-	echo "- BACKEND: ${BE:-}"
-	echo "- MODEL_TYPE: ${MODEL_TYPE:-}"
-	echo "- Using DATA_FILE_LIST: ${DATA_FILE_LIST:-}"
-	echo "++++++++++++++++++++++++++++++++++++++++++++++++++"
+	log_message INFO "++++++++++++++++++++++++++++++++++++++++++++++++++"
+	log_message INFO "- MPICH_DIR=${MPICH_DIR:-${MPI_ROOT:-}}"
+	log_message INFO "- Using $(which python3)"
+	log_message INFO "- WORLD_SIZE:${WORLD_SIZE-}"
+	log_message INFO "- BACKEND: ${BE:-}"
+	log_message INFO "- MODEL_TYPE: ${MODEL_TYPE:-}"
+	log_message INFO "- Using DATA_FILE_LIST: ${DATA_FILE_LIST:-}"
+	log_message INFO "++++++++++++++++++++++++++++++++++++++++++++++++++"
 }
 
 #############################################################################
@@ -453,9 +455,9 @@ get_grad_acc_steps_on_aurora() {
 	elif [[ "$#" == 1 ]]; then
 		hf="$1"
 	else
-		echo "Usage: get_grad_acc_steps_on_aurora"
-		echo "Expected exactly 0 or 1 arguments, received: $#"
-		exit 1
+		log_message INFO "Usage: get_grad_acc_steps_on_aurora"
+		log_message INFO "Expected exactly 0 or 1 arguments, received: $#"
+		return 1
 	fi
 	nhosts=$(wc -l <"${hf}")
 	if [[ "${nhosts}" -ge 256 ]]; then #   n >= 256
@@ -501,18 +503,115 @@ set_ccl_vars_on_aurora() {
 	export CCL_BCAST=double_tree
 }
 
+
+# ================================================
+# AuroraGPT Model Variants
+# ================================================
+get_model_arch_70B() {
+	HEADS=64
+	NLAYERS=80
+	NUM_KV_HEAD=8
+	FFN_HIDDEN_SIZE=28672
+	HIDDEN=8192
+	SEQ=8192
+	export MODEL_ARCH="AuroraGPT-70B"
+}
+
+get_model_arch_33B() {
+	# 33B
+	export MODEL_KEY="AuroraGPT-33B"
+	export TP=6
+	export ZERO_STAGE=2
+	export GRAD_ACC_STEPS=1
+	# export USE_ACTIVATION_CHECKPOINTING=1
+	export MICRO_BATCH=1
+	export NLAYERS=78
+	export HIDDEN=8268
+	export HEADS=78
+	export FFN_HIDDEN_SIZE=11076
+	export SEQ=4096
+	export NUM_KV_HEAD=6
+	export MODEL_ARCH="AuroraGPT-33B"
+}
+
 get_model_arch_7B() {
 	# 7B
 	# export MODEL_KEY="AuroraGPT-7B"
-	export HEADS=${HEADS:-${NHEADS:-32}}             # NUMBER OF ATEN HEADS
-	export NLAYERS=${NLAYERS:-${NUM_LAYERS:-32}}     # NUMBER OF LAYERS
-	export HIDDEN=${HIDDEN:-4096}                    # HIDDEN SIZE
-	export NUM_KV_HEAD=${NUM_KV_HEAD:-8}             # GROUP ATTENTION
-	export FFN_HIDDEN_SIZE=${FFN_HIDDEN_SIZE:-11008} # FFN HIDDEN SIZE
-	export SEQ=${SEQ:-4096}                          # SEQ_LEN: 4096
-	export MODEL_ARCH="AuroraGPT-7B"
+  declare -A model_config
+  model_config["HEADS"]="${HEADS:-32}"
+  model_config["NLAYERS"]="${NLAYERS:-32}"
+  model_config["HIDDEN"]="${HIDDEN:-4096}"
+  model_config["NUM_KV_HEAD"]="${NUM_KV_HEAD:-8}"
+  model_config["FFN_HIDDEN_SIZE"]="${FFN_HIDDEN_SIZE:-11008}"
+  model_config["SEQ"]="${SEQ:-4096}"
+  model_config["MODEL_ARCH"]="AuroraGPT-7B"
+  model_config["ZERO_STAGE"]="${ZERO_STAGE:-1}"
+  model_config["MICRO_BATCH"]="${MICRO_BATCH:-1}"
+  model_config["GRAD_ACC_STEPS"]="${GRAD_ACC_STEPS:-${GAS:-4}}"
+  model_config["USE_ACTIVATION_CHECKPOINTING"]="${USE_ACTIVATION_CHECKPOINTING:-0}"
+  model_config["LR_DECAY_STYLE"]="${LR_DECAY_STYLE:-cosine}"
+  model_config["TOKENIZER_TYPE"]="${TOKENIZER_TYPE:-HFTokenizer}"
+  model_config["TOKENIZER_MODEL"]="${TOKENIZER_MODEL:-"meta-llama/llama-2-7b-hf"}"
+  for key in "${!model_config[@]}"; do
+    log_message INFO "[AuroraGPT-7B] Setting ${GREEN}${key}${RESET}=${BLUE}${model_config[${key}]}${RESET}"
+    export "${key}"="${model_config[${key}]}"
+  done
+	# export HEADS=${HEADS:-${NHEADS:-32}}             # NUMBER OF ATEN HEADS
+	# export NLAYERS=${NLAYERS:-${NUM_LAYERS:-32}}     # NUMBER OF LAYERS
+	# export HIDDEN=${HIDDEN:-4096}                    # HIDDEN SIZE
+	# export NUM_KV_HEAD=${NUM_KV_HEAD:-8}             # GROUP ATTENTION
+	# export FFN_HIDDEN_SIZE=${FFN_HIDDEN_SIZE:-11008} # FFN HIDDEN SIZE
+	# export SEQ=${SEQ:-4096}                          # SEQ_LEN: 4096
+	# export model_config="AuroraGPT-7B"
+	#  export ZERO_STAGE="${ZERO_STAGE:-1}"
+	#  export MICRO_BATCH="${MICRO_BATCH:-1}"
+	#  export GRAD_ACC_STEPS=:"${GRAD_ACC_STEPS:-4}"
+	#  export USE_ACTIVATION_CHECKPOINTING="${USE_ACTIVATION_CHECKPOINTING:-0}"
+	# export LR_DECAY_STYLE="${LR_DECAY_STYLE:-cosine}"
+	#  export TOKENIZER_TYPE="${TOKENIZER_TYPE:-HFTokenizer}"
+	#  export TOKENIZER_MODEL="${TOKENIZER_MODEL:-meta-llama/llama-2-7b-hf}"
 }
 
+get_model_arch_2B() {
+  # 2B
+  declare -A model_config
+  model_config["HEADS"]="${HEADS:-16}"
+  model_config["NLAYERS"]="${NLAYERS:-12}"
+  model_config["HIDDEN"]="${HIDDEN:-2048}"
+  model_config["NUM_KV_HEAD"]="${NUM_KV_HEAD:-4}"
+  model_config["FFN_HIDDEN_SIZE"]="${FFN_HIDDEN_SIZE:-11008}"
+  model_config["SEQ"]="${SEQ:-8192}"
+  model_config["MODEL_ARCH"]="AuroraGPT-2B"
+  model_config["ZERO_STAGE"]="${ZERO_STAGE:-0}"
+  model_config["MICRO_BATCH"]="${MICRO_BATCH:-1}"
+  model_config["GRAD_ACC_STEPS"]="${GRAD_ACC_STEPS:-2}"
+  model_config["USE_ACTIVATION_CHECKPOINTING"]="${USE_ACTIVATION_CHECKPOINTING:-0}"
+  model_config["LR_DECAY_STYLE"]="${LR_DECAY_STYLE:-constant}"
+  model_config["TOKENIZER_TYPE"]="${TOKENIZER_TYPE:-HFTokenizer}"
+  model_config["TOKENIZER_MODEL"]="${TOKENIZER_MODEL:-google/gemma-7b}"
+  for key in "${!model_config[@]}"; do
+    log_message INFO "[AuroraGPT-2B] Setting ${GREEN}${key}${RESET}=${BLUE}${model_config[${key}]}${RESET}"
+    export "${key}"="${model_config[${key}]}"
+  done
+	# export HEADS=16
+	# export NLAYERS=12
+	# export HIDDEN=2048
+	# export NUM_KV_HEAD=4
+	# export FFN_HIDDEN_SIZE=11008
+	# export SEQ=8192
+	# export model_config="AuroraGPT-2B"
+	#  export ZERO_STAGE="${ZERO_STAGE:-0}"
+	#  export MICRO_BATCH="${MICRO_BATCH:-1}"
+	#  export GRAD_ACC_STEPS="${GRAD_ACC_STEPS:-2}"
+	#  export USE_ACTIVATION_CHECKPOINTING="${USE_ACTIVATION_CHECKPOINTING:-0}"
+	#  export LR_DECAY_STYLE="${LR_DECAY_STYLE:-constant}"
+	#  export TOKENIZER_TYPE="${TOKENIZER_TYPE:-HFTokenizer}"
+	#  export TOKENIZER_MODEL="${TOKENIZER_MODEL:-google/gemma-7b}"
+}
+
+# ================================================
+# Additional Model Variants
+# ================================================
 get_model_arch_llama3_3B() {
 	export HEADS=24
 	export NLAYERS=28
@@ -573,49 +672,6 @@ get_model_arch_phi4_mini_custom_nLayers() {
 	export MODEL_ARCH="phi4-mini-nLayers${NLAYERS}"
 }
 
-# get_model_arch_70B() {
-#     # 70B
-#     export MODEL_KEY="AuroraGPT-70B"
-#     export TP=6
-#     export ZERO_STAGE=2
-#     export GRAD_ACC_STEPS=1
-#     export USE_ACTIVATION_CHECKPOINTING=1
-#     export MICRO_BATCH=1
-#     export NLAYERS=80
-#     export HIDDEN=8192
-#     export HEADS=96
-#     export FFN_HIDDEN_SIZE=11040
-#     export SEQ=8192
-#     export NUM_KV_HEAD=6
-# }
-#
-get_model_arch_70B() {
-	HEADS=64
-	NLAYERS=80
-	NUM_KV_HEAD=8
-	FFN_HIDDEN_SIZE=28672
-	HIDDEN=8192
-	SEQ=8192
-	export MODEL_ARCH="AuroraGPT-70B"
-}
-
-get_model_arch_33B() {
-	# 33B
-	export MODEL_KEY="AuroraGPT-33B"
-	export TP=6
-	export ZERO_STAGE=2
-	export GRAD_ACC_STEPS=1
-	# export USE_ACTIVATION_CHECKPOINTING=1
-	export MICRO_BATCH=1
-	export NLAYERS=78
-	export HIDDEN=8268
-	export HEADS=78
-	export FFN_HIDDEN_SIZE=11076
-	export SEQ=4096
-	export NUM_KV_HEAD=6
-	export MODEL_ARCH="AuroraGPT-33B"
-}
-
 ##############################################################################
 # setParams
 #
@@ -641,13 +697,13 @@ setParams() {
 		export BE="${CCL}"          # COMMUNICATION BACKEND = CCL
 		export DTYPE=${DTYPE:-bf16} # DTYPE: bf16
 		# export GRAD_ACC_STEPS=${GRAD_ACC_STEPS:-1}     # GRADIENT_ACC_STEPS
-		gas=$(get_grad_acc_steps_on_aurora "${PBS_NODEFILE:-${HOSTFILE:-${hostfile}}}")
-		export GRAD_ACC_STEPS="${GRAD_ACC_STEPS:-${gas}}"
+		# gas=$(get_grad_acc_steps_on_aurora "${PBS_NODEFILE:-${HOSTFILE:-${hostfile}}}")
+		# export GRAD_ACC_STEPS="${GRAD_ACC_STEPS:-${gas:-1}}"
 		# export GRAD_ACC_STEPS="${GRAD_ACC_STEPS:-$(get_grad_acc_steps_on_aurora "$@)}"
-		echo "[setParams] Using GRAD_ACC_STEPS: ${GRAD_ACC_STEPS}"
-		MICRO_BATCH=${MICRO_BATCH:-1}
+		# echo "[setParams] Using GRAD_ACC_STEPS: ${GRAD_ACC_STEPS}"
+		# MICRO_BATCH=${MICRO_BATCH:-1}
 		if [[ -n "${NO_FLASH_ATTN-}" ]]; then
-			echo "Not using flash-attn!!"
+			log_message WARN "Not using flash-attn!!"
 		else
 			FLASH_ARG="--use-flash-attn-builder"
 		fi
@@ -664,11 +720,11 @@ setParams() {
 		# MICRO_BATCH=${MICRO_BATCH:-2}    # MICRO_BATCH = 8
 		export MICRO_BATCH="${MICRO_BATCH:-$(get_batch_size_on_polaris)}"
 		if [[ -n "${NO_FLASH_ATTN:-}" ]]; then
-			echo "Not using flash-attn!!"
+			log_message WARN "Not using flash-attn!!"
 		else
 			FLASH_ARG="--use-flash-attn-v2"
 		fi
-		echo "Setting up AWS NCCL OFI Plugin on Polaris..."
+		log_message INFO "Setting up AWS NCCL OFI Plugin on Polaris..."
 		source "${WORKING_DIR}/ALCF/aws_ofi_nccl_plugin.sh" || exit
 	# ---- [Sophia] ----------------------
 	elif [[ "${mn}" == sophia* ]]; then
@@ -680,7 +736,7 @@ setParams() {
 		export GRAD_ACC_STEPS=${GRAD_ACC_STEPS:-8} # GRADIENT_ACC_STEPS
 		export MICRO_BATCH="${MICRO_BATCH:-$(get_batch_size_on_polaris)}"
 		if [[ -n "${NO_FLASH_ATTN-}" ]]; then
-			echo "Not using flash-attn!!"
+			log_message WARN "Not using flash-attn!!"
 		else
 			FLASH_ARG="--use-flash-attn-v2"
 		fi
@@ -694,17 +750,23 @@ setParams() {
 		export DTYPE="${DTYPE:-bf16}"
 		MICRO_BATCH="${MICRO_BATCH:-1}"
 		if [[ -n "${NO_FLASH_ATTN-}" ]]; then
-			echo "Not using flash-attn!!"
+			log_message WARN "Not using flash-attn!!"
 		else
 			FLASH_ARG="--use-flash-attn-v2"
 		fi
 	fi
-	ma="${MODEL_ARCH:-7B}"
+	ma="${MODEL_ARCH:-"AuroraGPT-2B"}"
+
 	case "${ma}" in
-	# "70B" | "llama-3.1-70B" | "llama-3.1-70b" | "llama-3.2-70B" | "llama-3.2-70b")
-	"70B")
+	"70B" | "AuroraGPT-70B" | "aurora-gpt-70b")
 		get_model_arch_70B
 		;;
+	"7B" | "AuroraGPT-7B" | "aurora-gpt-7b")
+		get_model_arch_7B
+		;;
+  "2B" | "AuroraGPT-2B" | "aurora-gpt-2b")
+    get_model_arch_2B
+    ;;
 	"33B" | "llama-3.2-33B" | "llama-3.2-33b")
 		get_model_arch_33B
 		;;
@@ -717,11 +779,8 @@ setParams() {
 	"llama3-3B" | "llama-3B")
 		get_model_arch_llama3_3B_customNlayers
 		;;
-	"7B" | "AuroraGPT-7B" | "aurora-gpt-7b" | "llama-3.1-7B" | "llama-3.1-7b" | "llama-3.2-7B" | "llama-3.2-7b")
-		get_model_arch_7B
-		;;
 	*)
-		get_model_arch_7B
+		get_model_arch_3B
 		;;
 	esac
 	export TP="${TP}"
@@ -758,29 +817,45 @@ setParams() {
 		lr_flags+=("--lr-decay-iters ${LR_DECAY_ITERS:-}")
 	fi
 	# +---[Run Settings]------------------------------------------------------+
-	export ZERO_STAGE=${ZERO_STAGE:-1}                                                    # ZERO OFFLOADING STAGE
-	export MICRO_BATCH=${MICRO_BATCH:-1}                                                  # MICRO BATCH SIZE
-	export GRAD_ACC_STEPS=${GRAD_ACC_STEPS:-1}                                            # GRADIENT ACCUMULATION STEPS
+	# export ZERO_STAGE=${ZERO_STAGE:-1}                                                    # ZERO OFFLOADING STAGE
+	# export MICRO_BATCH=${MICRO_BATCH:-1}                                                  # MICRO BATCH SIZE
+	export GRAD_ACC_STEPS="${GRAD_ACC_STEPS}"                                            # GRADIENT ACCUMULATION STEPS
 	export TIMING_LOG_LEVEL="${TIMING_LOG_LEVEL:-1}"                                      # TIMING VERBOSITY IN LOGS
 	export ACT_CKPT_NUM_LAYERS="${ACT_CKPT_NUM_LAYERS:-1}"                                # NUM LAYERS TO CHECKPOINT ACTIVATIONS
-	export USE_ACTIVATION_CHECKPOINTING=${USE_ACTIVATION_CHECKPOINTING:-}                 # USE ACTIVATION CHECKPOINTING ?
+	export USE_ACTIVATION_CHECKPOINTING=${USE_ACTIVATION_CHECKPOINTING}                 # USE ACTIVATION CHECKPOINTING ?
 	export GLOBAL_BATCH_MAX=$((WORLD_SIZE * MICRO_BATCH * GRAD_ACC_STEPS / TP / PP / SP)) # MAX GLOBAL BATCH SIZE
 	export DP=$((WORLD_SIZE / TP / PP / SP))                                              # DATA PARALLELISM
 	export GLOBAL_BATCH="${GLOBAL_BATCH:-${GLOBAL_BATCH_MAX}}"                            # WILL USE MAX IF NOT SET IN ENVIRONMENT
-	echo "WORLD_SIZE: ${WORLD_SIZE} MBS: ${MICRO_BATCH} GAS: ${GRAD_ACC_STEPS} DP: ${DP} GBS: ${GLOBAL_BATCH} GBS_MAX: ${GLOBAL_BATCH_MAX} TP: ${TP} PP: ${PP} SP: ${SP}"
+  declare -A parallelism_config
+  parallelism_config["WORLD_SIZE"]="${WORLD_SIZE}"
+  parallelism_config["DP"]="${DP}"
+  parallelism_config["TP"]="${TP}"
+  parallelism_config["PP"]="${PP}"
+  parallelism_config["SP"]="${SP}"
+  parallelism_config["MICRO_BATCH"]="${MICRO_BATCH}"
+  parallelism_config["GRAD_ACC_STEPS"]="${GRAD_ACC_STEPS}"
+  parallelism_config["GLOBAL_BATCH"]="${GLOBAL_BATCH}"
+  parallelism_config["GLOBAL_BATCH_MAX"]="${GLOBAL_BATCH_MAX}"
+  for key in "${!parallelism_config[@]}"; do
+    log_message INFO "[Parallelism] Setting ${GREEN}${key}${RESET}=${BLUE}${parallelism_config[${key}]}${RESET}"
+    export "${key}"="${parallelism_config[${key}]}"
+  done
+	# echo "WORLD_SIZE: ${WORLD_SIZE} MBS: ${MICRO_BATCH} GAS: ${GRAD_ACC_STEPS} DP: ${DP} GBS: ${GLOBAL_BATCH} GBS_MAX: ${GLOBAL_BATCH_MAX} TP: ${TP} PP: ${PP} SP: ${SP}"
 	if [[ -n "${TRAIN_TOKENS:-}" ]]; then
 		export TRAIN_TOKENS="${TRAIN_TOKENS}"
 		export TRAIN_ITERS=$((TRAIN_TOKENS / SEQ / GLOBAL_BATCH))
-		printf "TRAIN_TOKENS=%s (=%sB tokens)\n" "${TRAIN_TOKENS}" "$((TRAIN_TOKENS / 10 ** 9))"
-		printf "TRAIN_ITERS=%s\n" "${TRAIN_ITERS}"
 	elif [[ -z "${TRAIN_ITERS:-${TRAIN_ITER:-}}" ]]; then
 		export TRAIN_TOKENS=${TRAIN_TOKENS:-4673780159710}
 		export TRAIN_ITERS=$((TRAIN_TOKENS / SEQ / GLOBAL_BATCH))
-		printf "TRAIN_TOKENS=%s (=%sB tokens)\n" "${TRAIN_TOKENS}" "$((TRAIN_TOKENS / 10 ** 9))"
-		printf "TRAIN_ITERS=%s\n" "${TRAIN_ITERS}"
+		# log_message INFO "TRAIN_TOKENS=%s (=%sB tokens)\n" "${TRAIN_TOKENS}" "$((TRAIN_TOKENS / 10 ** 9))"
+		# log_message INFO "TRAIN_ITERS=%s\n" "${TRAIN_ITERS}"
 	else
 		export TRAIN_ITERS="${TRAIN_ITERS:-${TRAIN_ITER:-}}"
+    TRAIN_TOKENS=$((TRAIN_ITERS * SEQ * GLOBAL_BATCH))
+    export TRAIN_TOKENS
 	fi
+  log_message INFO "TRAIN_TOKENS=${TRAIN_TOKENS} (=$((TRAIN_TOKENS / 10 ** 9))B tokens)"  # \n" "${TRAIN_TOKENS}" "$((TRAIN_TOKENS / 10 ** 9))"
+  log_message INFO "TRAIN_ITERS=${TRAIN_ITERS}"  # \n" "${TRAIN_ITERS}"
 	export MODEL_TYPE="${MODEL_ARCH:-AuroraGPT}-gb${GLOBAL_BATCH}-seq${SEQ}-pp${PP}-tp${TP}-${NLAYERS}layers-${HEADS}heads-${HIDDEN}hidden" # STRING FOR IDENTIFYING MODEL
 	# NOTE: [2024-07-10] #####################################################
 	# - [sam]: For whatever reason, it seems that using
@@ -823,7 +898,7 @@ set_args() {
 	ds_args+=("--zero-stage=$ZERO_STAGE")
 	# if [[ -n "${USE_ACTIVATION_CHECKPOINTING:-}" ]]; then
 	if [[ "${USE_ACTIVATION_CHECKPOINTING:-}" == 1 || "${USE_ACTIVATION_CHECKPOINTING:-}" == "true" ]]; then
-		echo "!! Caught USE_ACTIVATION_CHECKPOINTING=${USE_ACTIVATION_CHECKPOINTING} !!"
+		log_message WARN "!! Caught USE_ACTIVATION_CHECKPOINTING=${USE_ACTIVATION_CHECKPOINTING} !!"
 		ds_args+=("--deepspeed-activation-checkpointing")
 		ds_args+=(
 			"--checkpoint-activations"
@@ -868,7 +943,7 @@ ezpz_test() {
 # forwarded to ALL ranks with DeepSpeed
 ############################################################################
 saveDSenv() {
-	echo "Saving {PATH, LD_LIBRARY_PATH, htt{p,ps}_proxy, CFLAGS, PYTHONUSERBASE} to .deepspeed_env"
+	log_message INFO "Saving {PATH, LD_LIBRARY_PATH, htt{p,ps}_proxy, CFLAGS, PYTHONUSERBASE} to .deepspeed_env"
 	{
 		echo "PATH=${PATH:-}"
 		echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}"
@@ -989,14 +1064,15 @@ make_data() {
 ##############################################################################
 install_dependencies() {
 	depsfile="${WORKING_DIR}/ALCF/requirements/requirements.txt"
-	echo "[install_dependencies] Ensuring all dependencies from ${depsfile} installed..."
-	python3 -m pip install -r "${depsfile}" --require-virtualenv
+	log_message INFO "[install_dependencies] Ensuring all dependencies from ${depsfile} installed..."
+	python3 -m pip install -r "${depsfile}" > /dev/null || { # --require-virtualenv
+    log_message INFO "[install_dependencies] Failed to install dependencies from ${depsfile} on $(ezpz_get_machine_name) in $(which python3)\n"
+  }
 	if [[ ! -x "$(command -v deepspeed)" ]]; then
-		printf "[install_dependencies] No 'deepspeed' command found on %s in %s\n" "$$(ezpz_get_machine_name)" "$(which python3)"
-		printf "[install_dependencies] Attempting to install deepspeed via pip...\n"
-		python3 -m pip install deepspeed --require-virtualenv || {
-			printf "[install_dependencies] Failed to install deepspeed via pip on %s\n" "$(ezpz_get_machine_name)"
-			# printf "[install_dependencies] !! No deepsepeed in %s\n" "$(which python3)"
+    log_message INFO "[install_dependencies] No 'deepspeed' command found on $(ezpz_get_machine_name) in $(which python3)\n"
+		log_message INFO "[install_dependencies] Attempting to install deepspeed via pip...\n"
+		python3 -m pip install deepspeed > /dev/null || { # --require-virtualenv || {
+      log_message INFO "[install_dependencies] Failed to install deepspeed via pip on $(ezpz_get_machine_name)\n"
 			return 1
 		}
 		# mn=$(ezpz_get_machine_name)
@@ -1083,7 +1159,7 @@ makeHostfiles() {
 setup_tokenizer_and_data() {
 	if [[ "$#" == 1 ]]; then
 		tok="$1"
-		dfl="${DATA_FILE_LIST:-}"
+		dfl="${DATA_FILE_LIST:-ALCF/data-lists/$(ezpz_get_machine_name)/olmo-mix-11.txt}"
 	elif [[ "$#" == 2 ]]; then
 		tok="$1"
 		dfl="$2"
@@ -1131,8 +1207,8 @@ setup_tokenizer_and_data() {
 	fi
 	export DATA_FLAGS="${_data_flags[*]:-}"
 	export TOKENIZER_FLAGS="${_tokenizer_flags[*]}"
-	printf "[setData] DATA_FLAGS: %s\n" "$(printGreen "${DATA_FLAGS}")"
-	printf "[setData] TOKENIZER_FLAGS: %s\n" "$(printMagenta "${TOKENIZER_FLAGS}")"
+	log_message INFO "[setData] DATA_FLAGS: ${GREEN}${DATA_FLAGS}${RESET}"  # \n" "$(printGreen "${DATA_FLAGS}")"
+	log_message INFO "[setData] TOKENIZER_FLAGS: ${MAGENTA}${TOKENIZER_FLAGS}${RESET}"  # \n" "$(printMagenta "${TOKENIZER_FLAGS}")"
 }
 
 ###############################################
@@ -1149,7 +1225,7 @@ setData() { # ------------------------[dfl: abbrv. for DATA_FILE_LIST]
 	# set `dfl` to `dfl_fallback` if not passed as an argument,
 	# use this data file list to call `setData`
 	dfl="${1:-${dfl_fallback}}"
-	printf "Calling:  setData() with %s\n" "${dfl}"
+	log_message INFO "Calling:  setData() with ${dfl}"  # \n" "${dfl}"
 	ndocs=$(wc -l <"${dfl}")
 	ws=$(sumWeights "${dfl}")
 	dfl_stem=$(echo "${dfl}" | tr "\/" "\t" | awk '{print $NF}' | sed "s/\.txt//g")
@@ -1160,15 +1236,15 @@ setData() { # ------------------------[dfl: abbrv. for DATA_FILE_LIST]
 	export DFL_STEM="${dfl_stem}"
 	export DATA_CACHE_PATH="${dcp}"
 	# export DATA_FLAGS="${DATA_FLAGS} --data-file-list ${DATA_FILE_LIST}"   #  --data-cache-path ${DATA_CACHE_PATH}"
-	echo "--------------------"
-	echo "Updated environment:"
-	printf "DATA_FILE_LIST: %s\n" "${DATA_FILE_LIST}"
-	printf "NUM_DOCS: %s\n " "${NUM_DOCS}"
-	printf "WEIGHT_SUM: %s\n" "${WEIGHT_SUM}"
-	printf "DFL_STEM: %s\n" "${DFL_STEM}"
-	printf "DATA_CACHE_PATH: %s\n" "${DATA_CACHE_PATH}"
-	printf "DATA_FLAGS: %s\n" "${DATA_FLAGS:-}"
-	echo "--------------------"
+	log_message INFO "--------------------"
+	log_message INFO "Updated environment:"
+	log_message INFO "DATA_FILE_LIST: ${DATA_FILE_LIST}"  # \n" "${DATA_FILE_LIST}"
+	log_message INFO "NUM_DOCS: ${NUM_DOCS}"  # %s\n " "${NUM_DOCS}"
+	log_message INFO "WEIGHT_SUM: ${WEIGHT_SUM}"  # %s\n" "${WEIGHT_SUM}"
+	log_message INFO "DFL_STEM: ${DFL_STEM}"  # %s\n" "${DFL_STEM}"
+	log_message INFO "DATA_CACHE_PATH: ${DATA_CACHE_PATH}"  # %s\n" "${DATA_CACHE_PATH}"
+	log_message INFO "DATA_FLAGS: ${DATA_FLAGS}"  # \n" "${DATA_FLAGS:-}"
+	log_message INFO "--------------------"
 }
 
 generateDSconfig_new() {
