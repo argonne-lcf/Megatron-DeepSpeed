@@ -3,6 +3,7 @@
 import contextlib
 from typing import Callable, Iterator, List, Optional, Union
 
+import ezpz
 import torch
 from torch.autograd.variable import Variable
 from torch.nn.parallel.distributed import DistributedDataParallel as torchDDP
@@ -14,7 +15,7 @@ from megatron.core.pipeline_parallel import p2p_communication
 from megatron.core.enums import ModelType
 from megatron.core.utils import get_attr_wrapped_model, get_model_type, get_model_config
 
-from megatron.utils import print_rank_0, unwrap_model
+from megatron.utils import unwrap_model
 from megatron.model import DistributedDataParallel as LocalDDP
 from megatron.model import Float16Module
 from megatron.utils import Profile
@@ -22,6 +23,8 @@ from megatron.utils import Profile
 dlp = Profile("CORE")
 # Types
 Shape = Union[List[int], torch.Size]
+
+logger = ezpz.get_logger(__name__)
 
 
 def get_forward_backward_func():
@@ -141,9 +144,9 @@ def custom_backward(output, grad_output):
     grad have the same shape, while C++'s 'backward' does not.
     """
 
-    assert (
-        output.numel() == 1
-    ), "output should be pseudo-'freed' in schedule, to optimize memory"
+    assert output.numel() == 1, (
+        "output should be pseudo-'freed' in schedule, to optimize memory"
+    )
     assert isinstance(output, torch.Tensor), "output == '%s'." % type(output).__name__
     assert isinstance(grad_output, (torch.Tensor, type(None))), (
         "grad_output == '%s'." % type(grad_output).__name__
@@ -264,10 +267,13 @@ def backward_step(
         if config.timers is not None:
             config.timers("backward-compute").stop()
         if len(to_skip) > 0 and args.iteration in [int(i) for i in to_skip]:
-            print_rank_0(f"Caught {args.iteration=} in `iters_to_skip`! Skipping!")
+            logger.info(f"Caught {args.iteration=} in `iters_to_skip`! Skipping!")
             return [None]
     if args.deepspeed:
+        from deepspeed import DeepSpeedEngine
+
         assert model is not None
+        assert isinstance(model, DeepSpeedEngine)
     # Retain the grad on the input_tensor.
     unwrap_input_tensor_grad = False
     if not isinstance(input_tensor, list):
@@ -312,6 +318,37 @@ def backward_step(
             input_tensor_grad[-1].add_(output_tensor_grad[1])
     if unwrap_input_tensor_grad:
         input_tensor_grad = input_tensor_grad[0]
+
+    # Add check to see if any NanNs in gradients
+    # if so:
+    # 1. Identify rank, print info to std out
+    # 2. Set NaN values to zero
+    # 3. Proceed with backprop
+    if input_tensor_grad is not None:
+        ezpz.breakpoint(0)
+        if not unwrap_input_tensor_grad:
+            for idx, x in enumerate(input_tensor_grad):
+                if torch.isnan(x).any():
+                    logger.critical(
+                        " ".join(
+                            [
+                                f"[{ezpz.get_hostname()}][{ezpz.get_rank()}] ",
+                                f"NaN detected in input_tensor_grad[{idx}]!! Setting to zero.",
+                            ]
+                        )
+                    )
+                    input_tensor_grad[idx][torch.isnan(x)] = 0.0
+        else:
+            if torch.isnan(input_tensor_grad).any():
+                logger.critical(
+                    " ".join(
+                        [
+                            f"[{ezpz.get_hostname()}][{ezpz.get_rank()}] ",
+                            f"NaN detected in input_tensor_grad!! Setting to zero.",
+                        ]
+                    )
+                )
+                input_tensor_grad[torch.isnan(input_tensor_grad)] = 0.0
     if config.timers is not None:
         config.timers("backward-compute").stop()
     return input_tensor_grad
@@ -340,14 +377,14 @@ def forward_backward_no_pipelining(
     """
 
     if isinstance(model, list):
-        assert (
-            len(model) == 1
-        ), "non-pipeline-parallel schedule does not support model chunking"
+        assert len(model) == 1, (
+            "non-pipeline-parallel schedule does not support model chunking"
+        )
         model = model[0]
     if isinstance(data_iterator, list):
-        assert (
-            len(data_iterator) == 1
-        ), "non-pipeline-parallel schedule does not support model chunking"
+        assert len(data_iterator) == 1, (
+            "non-pipeline-parallel schedule does not support model chunking"
+        )
         data_iterator = data_iterator[0]
 
     config = get_model_config(model)
@@ -359,13 +396,18 @@ def forward_backward_no_pipelining(
         no_sync_func = contextlib.nullcontext
 
     args = get_args()
+    assert args is not None
     if args.deepspeed:
+        from deepspeed import DeepSpeedEngine
+
+        assert isinstance(model, DeepSpeedEngine)
         model.set_gradient_accumulation_boundary(False)
 
     model_type = get_model_type(model)
 
     forward_data_store = []
-    input_tensor, output_tensor_grad = None, None
+    input_tensor = None
+    output_tensor_grad = None
     with no_sync_func():
         for i in dlp.iter(range(num_microbatches - 1)):
             output_tensor = forward_step(
@@ -428,15 +470,15 @@ def forward_backward_pipelining_with_interleaving(
     communication between pipeline stages as needed.
 
     Returns dictionary with losses if the last stage, empty dict otherwise."""
-    assert isinstance(
-        model, list
-    ), "interleaved pipeline parallelism expected model chunking"
-    assert all(
-        isinstance(chunk, torch.nn.Module) for chunk in model
-    ), "invalid model chunking"
-    assert isinstance(
-        data_iterator, list
-    ), "interleaved pipeline parallelism expected each model chunk to have a data iterator"
+    assert isinstance(model, list), (
+        "interleaved pipeline parallelism expected model chunking"
+    )
+    assert all(isinstance(chunk, torch.nn.Module) for chunk in model), (
+        "invalid model chunking"
+    )
+    assert isinstance(data_iterator, list), (
+        "interleaved pipeline parallelism expected each model chunk to have a data iterator"
+    )
 
     config = get_model_config(model[0])
     if config.overlap_p2p_comm and config.batch_p2p_comm:
@@ -689,7 +731,6 @@ def forward_backward_pipelining_with_interleaving(
     bwd_wait_handles = None
 
     for k in range(num_warmup_microbatches):
-
         if fwd_wait_handles is not None:
             for req in fwd_wait_handles:
                 req.wait()
@@ -1159,14 +1200,14 @@ def forward_backward_pipelining_without_interleaving(
     Returns dictionary with losses if the last stage, empty dict otherwise."""
 
     if isinstance(model, list):
-        assert (
-            len(model) == 1
-        ), "non-interleaved pipeline parallelism does not support model chunking"
+        assert len(model) == 1, (
+            "non-interleaved pipeline parallelism does not support model chunking"
+        )
         model = model[0]
     if isinstance(data_iterator, list):
-        assert (
-            len(data_iterator) == 1
-        ), "non-pipeline-parallel schedule does not support model chunking"
+        assert len(data_iterator) == 1, (
+            "non-pipeline-parallel schedule does not support model chunking"
+        )
         data_iterator = data_iterator[0]
 
     config = get_model_config(model)
@@ -1353,7 +1394,6 @@ def forward_backward_pipelining_without_interleaving(
     # Run cooldown backward passes.
     if not forward_only:
         for i in range(num_warmup_microbatches):
-
             # Enable async grad reduction in the last backward pass
             # Note: If grad sync function is provided, only enable
             # async grad reduction in first pipeline stage. Other

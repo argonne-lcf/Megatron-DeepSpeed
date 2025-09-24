@@ -5,50 +5,53 @@
 #PBS -l walltime=06:00:00,filesystems=flare:home
 #PBS -l select=256
 
-cd /flare/datascience/foremans/projects/argonne-lcf/Megatron-DeepSpeed || {
-  echo "Failed to change directory to /flare/datascience/foremans/projects/argonne-lcf/Megatron-DeepSpeed"
-  exit 1
+
+# Optimizer Plans
+#
+# 1. Ongoing:
+#    - Lamb
+#      - 256 Nodes (50M Tok / batch, LR=2e-4)
+#      - 512 Nodes (100M Tok / batch, LR=2e-4)
+# 1. Up-next:
+#    256 Nodes @ 50M Tok / batch  
+#    - Sophia:
+#      - LR=2.17e-5
+#    - Muon
+#      - LR=1.82e-5
+#    - Muon-clip
+#      - LR=2.28e-5
+
+
+setup_env() {
+    cd "${PBS_O_WORKDIR}" || {
+        echo "Failed to change directory to ${PBS_O_WORKDIR}"
+        exit 1
+    }
+    # shellcheck disable=SC1090
+    source <(curl -L https://bit.ly/ezpz-utils)
+    ezpz_setup_env
+    log_message INFO "Using: $(which python3)"
 }
 
-PBS_O_WORKDIR="$(pwd)"
-export PBS_O_WORKDIR
+train_model() {
+  MODEL_ARCH=AuroraGPT-2B \
+    OPT=muonclip \
+    LR=2.28e-5 \
+    GRAD_ACC_STEPS=2 \
+    MICRO_BATCH=1 \
+    USE_ACTIVATION_CHECKPOINTING=0 \
+    ZERO_STAGE=0 \
+    LR_DECAY_STYLE=constant \
+    TOKENIZER_TYPE=HFTokenizer \
+    TOKENIZER_MODEL=google/gemma-7b \
+    DATA_FILE_LIST=ALCF/data-lists/aurora/olmo-mix-1124.txt \
+    bash "${PBS_O_WORKDIR}/train_alcf.sh" \
+    "$@"
+  }
 
-export HTTP_PROXY="http://proxy.alcf.anl.gov:3128"
-export HTTPS_PROXY="http://proxy.alcf.anl.gov:3128"
-export http_proxy="http://proxy.alcf.anl.gov:3128"
-export https_proxy="http://proxy.alcf.anl.gov:3128"
-export ftp_proxy="http://proxy.alcf.anl.gov:3128"
+main() {
+  setup_env
+  train_model "$@"
+}
 
-
-# shellcheck disable=SC1090
-source <(curl -L https://bit.ly/ezpz-utils)
-ezpz_setup_env
-
-# eval "$(micromamba shell hook --shell "$(basename "${SHELL}")")"
-# ezpz_load_new_pt_modules_aurora
-# micromamba activate /flare/datascience_collab/foremans/micromamba/envs/pt29-2025-07
-#
-# NODES=$(cat "${PBS_NODEFILE}" | uniq | wc -l)
-# mpiexec -np "${NODES}" --ppn 1 python3 \
-#   /flare/datascience/foremans/projects/argonne-lcf/scalable_conda_env/cache_soft.py \
-#   --src=/flare/datascience/foremans/pt29-ezpz-2025-07.tar.gz \
-#   --dst=/tmp/pt29-ezpz-2025-07.tar.gz \
-#   --d
-#
-# micromamba deactivate
-# micromamba activate /tmp/pt29-ezpz-2025-07
-# which python3
-
-MODEL_ARCH=smollm3-3B \
-  OPT=ipex.fusedlamb \
-  NLAYERS=12 \
-  GRAD_ACC_STEPS=2 \
-  MICRO_BATCH=1 \
-  USE_ACTIVATION_CHECKPOINTING=0 \
-  ZERO_STAGE=0 \
-  OPT=adamw \
-  LR_DECAY_STYLE=constant \
-  TOKENIZER_TYPE=HFTokenizer \
-  TOKENIZER_MODEL=google/gemma-7b \
-  DATA_FILE_LIST=ALCF/data-lists/aurora/olmo-mix-1124.txt \
-  bash "${PBS_O_WORKDIR}/train_alcf.sh"
+main "$@"

@@ -48,6 +48,7 @@ import wandb
 
 from torch import nn
 import torch.nn.functional as F
+
 dt_imports = time.time() - python_start_time
 t0_setup = time.time()
 
@@ -342,9 +343,7 @@ def loss_func(loss_mask, moe_loss, mos_loss, output_tensor):
                 "kd loss": mos_loss,
             }
         log.info(
-            f">>> total loss: {loss}, "
-            f"lm loss {averaged_loss[0]}, "
-            f"kd loss {mos_loss}"
+            f">>> total loss: {loss}, lm loss {averaged_loss[0]}, kd loss {mos_loss}"
         )
     else:
         if max(args.num_experts) <= 1:
@@ -486,8 +485,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
                     except Exception as exc:
                         log.exception(exc)
                         raise Exception(
-                            "Please provide the file list as "
-                            "'weight, filename, corpus'"
+                            "Please provide the file list as 'weight, filename, corpus'"
                         )
                     if fname.find(".bin") != -1:
                         fname = fname.split(".bin")[0]
@@ -547,8 +545,7 @@ def git_ds_info():
         git_hash = "unknown"
         git_branch = "unknown"
     print(
-        f"**** Git info for Megatron: "
-        f"git_hash={git_hash} git_branch={git_branch} ****"
+        f"**** Git info for Megatron: git_hash={git_hash} git_branch={git_branch} ****"
     )
 
 

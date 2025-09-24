@@ -8,6 +8,7 @@
 ###############################################################################
 # Source:
 # [`ezpz/bin/utils.sh`](https://github.com/saforem2/ezpz/blob/main/src/ezpz/bin/utils.sh)
+# shellcheck disable=SC1090
 source <(curl -L https://bit.ly/ezpz-utils) >/dev/null || return 1
 ezpz_setup_job >/dev/null || exit
 ###############################################################################
@@ -207,7 +208,7 @@ setup_run_cmd() {
 		"--adam-beta1=${ADAM_BETA1:-0.9}"
 		"--adam-beta2=${ADAM_BETA2:-0.95}"
 		"--adam-eps=${ADAM_EPS:-0.00001}"
-		"--blend-sample-in-corpus"
+		# "--blend-sample-in-corpus"
 		"--clip-grad=${CLIP_GRAD:-1.0}"
 		"--data-cache-path=${data_cache_path}"
 		"--data-file-list=${DATA_FILE_LIST:-${dfl_fallback}}"
@@ -230,7 +231,7 @@ setup_run_cmd() {
 		"--num-attention-heads=${HEADS}"
 		"--optimizer=${OPT}"
 		"--pipeline-model-parallel-size=${PP}"
-		"--rotary-position-embeddings-theta=${ROPE_THETA:-50000}"
+		"--rotary-position-embeddings-theta=${ROPE_THETA:-5000000}"
 		"--save=${SAVE:-${CKPT_DIR}}"
 		"--seq-length=${SEQ}"
 		"--split=${TRAIN_SPLIT:-990},${VAL_SPLIT:-10},${TEST_SPLIT:-0}"
@@ -501,6 +502,18 @@ set_ccl_vars_on_aurora() {
 	export CCL_BCAST=double_tree
 }
 
+
+get_model_arch_AuroraGPT_2B() {
+	# AuroraGPT-2B
+	export HEADS=16
+	export NLAYERS=12
+	export HIDDEN=2048
+	export NUM_KV_HEAD=4
+	export FFN_HIDDEN_SIZE=11008
+	export SEQ=8192
+	export MODEL_ARCH="AuroraGPT-2B"
+}
+
 get_model_arch_7B() {
 	# 7B
 	# export MODEL_KEY="AuroraGPT-7B"
@@ -717,6 +730,9 @@ setParams() {
 	"llama3-3B" | "llama-3B")
 		get_model_arch_llama3_3B_customNlayers
 		;;
+  "2B" | "AuroraGPT-2B" | "AuroraGPT_2B" | "Aurora-GPT-2B" | "AuroraGPT2B" | "Aurora_GPT_2B" | "aurora-gpt-2b" | "aurora_gpt_2b")
+    get_model_arch_AuroraGPT_2B
+    ;;
 	"7B" | "AuroraGPT-7B" | "aurora-gpt-7b" | "llama-3.1-7B" | "llama-3.1-7b" | "llama-3.2-7B" | "llama-3.2-7b")
 		get_model_arch_7B
 		;;
@@ -990,11 +1006,11 @@ make_data() {
 install_dependencies() {
 	depsfile="${WORKING_DIR}/ALCF/requirements/requirements.txt"
 	echo "[install_dependencies] Ensuring all dependencies from ${depsfile} installed..."
-	python3 -m pip install -r "${depsfile}" --require-virtualenv
+	python3 -m pip install -r "${depsfile}" # --require-virtualenv
 	if [[ ! -x "$(command -v deepspeed)" ]]; then
 		printf "[install_dependencies] No 'deepspeed' command found on %s in %s\n" "$$(ezpz_get_machine_name)" "$(which python3)"
 		printf "[install_dependencies] Attempting to install deepspeed via pip...\n"
-		python3 -m pip install deepspeed --require-virtualenv || {
+		python3 -m pip install deepspeed || { # --require-virtualenv || {
 			printf "[install_dependencies] Failed to install deepspeed via pip on %s\n" "$(ezpz_get_machine_name)"
 			# printf "[install_dependencies] !! No deepsepeed in %s\n" "$(which python3)"
 			return 1
