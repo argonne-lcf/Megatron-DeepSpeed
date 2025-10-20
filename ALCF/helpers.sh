@@ -671,7 +671,7 @@ setParams() {
 		export NCCL=${NCCL:-nccl} # NCCL
 		export BE="${NCCL}"       # BE = NCCL
 		# export DTYPE=${DTYPE:-bf16}                   # DTYPE: BF16 ??
-		export DTYPE=${DTYPE:-fp16}                # DTYPE: FP16
+		export DTYPE=${DTYPE:-bf16}                # DTYPE: FP16
 		export GRAD_ACC_STEPS=${GRAD_ACC_STEPS:-8} # GRADIENT_ACC_STEPS
 		# NOTE: MICRO_BATCH is exported below
 		# MICRO_BATCH=${MICRO_BATCH:-2}    # MICRO_BATCH = 8
@@ -681,8 +681,8 @@ setParams() {
 		else
 			FLASH_ARG="--use-flash-attn-v2"
 		fi
-		echo "Setting up AWS NCCL OFI Plugin on Polaris..."
-		source "${WORKING_DIR}/ALCF/aws_ofi_nccl_plugin.sh" || exit
+		# echo "Setting up AWS NCCL OFI Plugin on Polaris..."
+		# source "${WORKING_DIR}/ALCF/aws_ofi_nccl_plugin.sh" || exit
 	# ---- [Sophia] ----------------------
 	elif [[ "${mn}" == sophia* ]]; then
 		# export LAUNCH_CMD="${LAUNCH_CMD:-deepspeed}"
@@ -1279,7 +1279,6 @@ generateDSconfig() {
             },
             \"bfloat16\": {
               \"enabled\": false,
-              \"loss_scale\": 1.0
             },"
 	else
 		dtype="\"communication_data_type\": \"fp32\","
