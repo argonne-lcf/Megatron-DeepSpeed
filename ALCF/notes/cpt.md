@@ -22,7 +22,6 @@ Note that you add data to the buffer B after the current step to be used for the
  ```bash
 python3 mix_datasets.py --input 0.9 /flare/Aurora_deployment/AuroraGPT/datasets/papers/papers.txt 0.1 /flare/Aurora_deployment/AuroraGPT/datasets/dolma/dolma_v1_7_file_list_v2.txt > ${debug_dir}/Megatron-DeepSpeed/ALCF/data-lists/aurora/mix_lucid_papers09_dolma01.txt
 ```
-This means you are replaying 10% of dolma and doing CPT with lucid. 
 For convenience, here is a copy of the ***mix_datasets.py*** script
 ```bash
 #!/usr/bin/env python3
