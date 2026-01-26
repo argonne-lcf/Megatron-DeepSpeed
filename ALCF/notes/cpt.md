@@ -2,7 +2,7 @@
 CPT is the process of continually pre-training a model on new data. The goal of CPT is to continue training on new data while retaining previously learned knowledge and avoiding forgetting. When compared to finetuning, the goal of CPT is not to improve the model knowledge and performance on a given downstream task but to retain and improve current knowledge as more data are being streamed.
 This document serves as a strategy cookbook for our current runs. A CPT strategy for the legacy model (agpt-7B) can be found at the end of the document. Here we focus mainly on the learning rate schedules and the data mixing strategy. 
 We are not exploring alternative approaches like **model merging** which might be worth considering especially when we train on the math and code dataset.
-Here, we suppose the base model was trained on dataset $D_0$ and label the subsequent datasets $D_i$, $i = 1\cdotsN$. So stage 1 is training with $D_0$, stage 2 is training with $D_1$, stage 3 with $D_3$ and stage 4 with $D_3$.
+Here, we suppose the base model was trained on dataset $D_0$ and label the subsequent datasets $D_i$, $i = 1, \cdots, N$. So stage 1 is training with $D_0$, stage 2 is training with $D_1$, stage 3 with $D_3$ and stage 4 with $D_3$.
 
 ## AuroraGPT V1
 Here we are using infinite schedulers where we warmed up the LR up to LR_max then kept it constant before cooling it down. The advantage of using this is to avoid the need of rewarming the LR when doing continual pretraining. 
