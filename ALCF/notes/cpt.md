@@ -127,7 +127,7 @@ My guess is that since the distribution shift is not too strong between stage I 
  - Continue training with the base dataset with (a cosine scheduler decaying to **LR_max/100**) or (cooldown to **LR_max/100**). (I would experiment with both if resources allow)
  - Introduce the new dataset at **LR=LR_max/5**. When introducing the new dataset, you use a mixed one i.e you should not exclusively use the new dataset. This is basically the recipe here [recipe](https://arxiv.org/pdf/2407.07263v1)
    
-**If that does not work**,take a converged checkpoint **i.e after cooling it down** and experiment with rewarming the LR to a different value and the data mixing strategy by increasing the pretraining data weight.
+4. **If that does not work**,take a converged checkpoint **i.e after cooling it down** and experiment with rewarming the LR to a different value and the data mixing strategy by increasing the pretraining data weight.
 
 #### Stage 3 to stage 4 (shift to reasoning tracex)
 Try the same strategies as above. My guess here is you will (need the buffer and balance the weights across the 3 data sources) OR (need to do step 3)
