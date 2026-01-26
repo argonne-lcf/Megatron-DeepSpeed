@@ -11,14 +11,18 @@ In all that follows, we suppose the base model was trained on dataset $D_0$ and 
 ## AuroraGPT V1 (Stages 1 to 4)
 For these runs, we have 4 stages of training with the first stage producing the pretrained or base model. A key element here is the learning rate scheduler that was used. In fact, as opposed to the legacy model, we used an infinite scheduler where the LR was warmed up to $LR_{max}$ then kept constant before cooling it down to convergence. The main advantage of this is to avoid rewarming the LR when doing CPT which can lead to instabilities. Therefore, we mostly adopt a data centric strategy here but might resort to playing with the LRs if needed. The dataset $D_0$ for pretraining is Olmo-mix and has 4 Trillion tokens, then $D_1$ has 2 Trillion tokens from Dolmino and fineweb Edu meaning the data distribution between these two stages is weak. We then have $D_2$ for stage 3 that has 1.5 trillion tokens from math, code, ans science papers. Finally, we have $D_3$ stage 4 made of 0.5 trillion tokens from reasoning traces. 
 ## Data centric strategy ##
-The main thing to figure out here is the data mixing strategy. To avoid catastrophic forgetting, we need to sample from the pretraining dataset $D_0$, the current one $D_i$, and we also might need to sample from a buffer $B$ that contains data from the previous stages $D_1,\cdots,D_{i-1}$. See the figure below from this [paper](https://arxiv.org/pdf/2408.14471)
+The main thing to figure out here is the data mixing strategy. To avoid catastrophic forgetting, we need to sample from the pretraining dataset $D_0$, the current one $D_i$, and we also might need to sample from a buffer $B$ that contains data from the previous stages $D_1,\cdots,D_{i-1}$. Which means we need sampling weights $\alpha_0$ for the pretraining data, $\alpha_D$ for the current dataset, and $\alpha_B$ for the buffer dataset with $\alpha_0 + \alpha_D + \alpha_D = 1$.
+See the figure below from this [paper](https://arxiv.org/pdf/2408.14471)
 ![data mixing](./assets/CPT_data_mixing.png)
 Note that you add data to the buffer B after the current step to be used for the next one i.e at sampling time, B only contains data from previous stages.
 
 #### Stage 1 to stage 2 (weak distribution shift)
 ##### First strategy to try
- **YOU NEED TO USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN**. Then
- 1. ***Replay the pretraining dataset*** To that aim, use [mix_datasets.py](https://github.com/zhenghh04/blendcorpus/blob/main/utils/mix_datasets.py) function to build your cpt dataset. You need to mix data from the pretraining set $D_0$ and the current CPT set $D_1$. Always start with a small percent of the pretraing dataset i.e 1% then increase to 25-30%, **5%** is a common suitable choice. For example, to mix the lucid papers with weight 0.9 and the dolma dataset with weight 0.1, you do
+**YOU NEED TO USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN**
+Just naively continue training with D_1, no replay data. This might work here because the datasets are similar.
+##### Second strategy 
+ **YOU NEED TO USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN**. Then,
+ 1. ***Replay the pretraining dataset*** To that aim, use [mix_datasets.py](https://github.com/zhenghh04/blendcorpus/blob/main/utils/mix_datasets.py) function to build your cpt dataset. You need to mix data from the pretraining set $D_0$ and the current CPT set $D_1$. Always start with a small percent of the pretraing dataset i.e $\alpha_0 = 0.1$ and $\alpha_D = 0.9$ then increase $\alpha_0$ to 25-30%, **$alpha_0=0.05** is a common suitable choice. For example, to mix the lucid papers with weight 0.9 and the dolma dataset with weight 0.1, you do
  ```bash
 python3 mix_datasets.py --input 0.9 /flare/Aurora_deployment/AuroraGPT/datasets/papers/papers.txt 0.1 /flare/Aurora_deployment/AuroraGPT/datasets/dolma/dolma_v1_7_file_list_v2.txt > ${debug_dir}/Megatron-DeepSpeed/ALCF/data-lists/aurora/mix_lucid_papers09_dolma01.txt
 ```
@@ -102,32 +106,23 @@ if __name__ == '__main__':
     main()
 ```
 2. Start building the buffer $B$ in prevision of the next stages.
-3. Run the following cpt command from the Megatron-deepspeed folder (you can modify GRAD_ACC_STEPS according to the batch size you want to do CPT with):
-```bash
-DATA_FILE_LIST=./ALCF/data-lists/aurora/mix_lucid_papers_dolma.txt LOAD=/flare/AuroraGPT/AuroraGPT-v0/checkpoint-copies/checkpoints/ws768_ds_stage1_nl32_hs4096_mb1_seq4096_gb3072_sp1_pp1_tp1_bf16_optadamw_lr_lwf_flash TRAIN_TOKENS=$((22*10**9)) GRAD_ACC_STEPS=16 LR_WARMUP_FRACTION=0.01 bash train_alcf.sh --universal-checkpoint --finetune
-```
-Here the following options options/flags should be:
-```bash
-DATA_FILE_LIST=path/to/your/tokenized/data
-LOAD=path/to/your/universal/checkpoint
-SAVE=path/to/where/you/want/to/save/checkpoints
---universal-checkpoint to load a universal checkpoint (not needed if checkpoint not universal)
-```
-Note that you might need to convert your checkpoints following [the instructions](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/ALCF/notes/universal_checkpoint_bug.md) here.
+3. Load your checkpoint and run CPT with the --finetube flag.
+Note that you might need to convert your checkpoints following [these instructions](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/ALCF/notes/universal_checkpoint_bug.md).
 
-##### If loss is not recovering, one can:
-   - take a converged checkpoint **i.e after cooling it down** and experiment with rewarming the LR to a different value and the data mixing strategy by increasing the pretraining data weight.
-   - If still no luck, I'd:
+##### If loss is not recovering after increasing the pretraining data weight, one can switch to a LR centric approach:
+   - take a converged checkpoint **i.e after cooling it down** and experiment with rewarming the LR to a different value.
+   - If still no luck, one should:
      a. take an earlier not converged checkpoint
      b. Continue training with the base dataset with (i) a cosine scheduler decaying to **LR_max/100** or (ii) cooldown to **LR_max/100**. (I would experiment with both if resources allow)
-     c. Introduce the new dataset at **LR=LR_max/5**. When introducing the new dataset, you use a mixed one i.e you should not exclusively use the new dataset.This is basically the recipe here [recipe](https://arxiv.org/pdf/2407.07263v1)
+     c. Introduce the new dataset at **LR=LR_max/5**. When introducing the new dataset, you use a mixed one i.e $\alpha_0 > 0$ as you should not exclusively use the new dataset. This is basically the recipe here [recipe](https://arxiv.org/pdf/2407.07263v1)
 
-My guess is that since the distribution shift is not too strong between stage I and stage II data, you will not need to experiment with the latter.
+My guess is that since the distribution shift is not too strong between stage I and stage II data, the naive approach or the second one might work and you will not need to experiment with the latter.
 
 #### Stage 2 to stage 3 (shift to math/code datasets)
-1. Start by trying the above strategy i.e mixing from the previous stage 1 training set (the one obtained after mixing) then follow the same steps.
-2. If loss is not recovering, use the buffer. Mix from $D_0$, the current dataset $D_2$ and the buffer B. You should try weights 0.05 for D_0, 0.48 for D_1, and 0.47 for B then 0, 0.1, 0.9. Some explorations might be needed here. Do not forget to add data from D_2 to the buffer for the next training stage
-3. If all fail, do the following
+1. You can try the naive approach but it might not work here. Then,
+2. Try the second strategy above i.e mixing from the previous stage 1 training set (the one obtained after mixing) then follow the same steps.
+3. If loss is not recovering, use the buffer. Mix from $D_0$, the current dataset $D_2$ and the buffer B. You should try weights 0.05 for D_0, 0.48 for D_1, and 0.47 for B then 0, 0.1, 0.9. Some explorations might be needed here. Do not forget to add data from D_2 to the buffer for the next training stage
+4. If all fail, do the following
  - take a checkpoint before convergence **i.e before cooldown**
  - Continue training with the base dataset with (a cosine scheduler decaying to **LR_max/100**) or (cooldown to **LR_max/100**). (I would experiment with both if resources allow)
  - Introduce the new dataset at **LR=LR_max/5**. When introducing the new dataset, you use a mixed one i.e you should not exclusively use the new dataset. This is basically the recipe here [recipe](https://arxiv.org/pdf/2407.07263v1)
