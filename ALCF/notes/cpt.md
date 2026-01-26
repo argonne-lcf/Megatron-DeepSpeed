@@ -95,6 +95,21 @@ def main():
 if __name__ == '__main__':
     main()
 ```
+2. Run the following cpt command from the Megatron-deepspeed folder (you can modify GRAD_ACC_STEPS according to the batch size you want to do CPT with):
+
+```bash
+DATA_FILE_LIST=./ALCF/data-lists/aurora/mix_lucid_papers_dolma.txt LOAD=/flare/AuroraGPT/AuroraGPT-v0/checkpoint-copies/checkpoints/ws768_ds_stage1_nl32_hs4096_mb1_seq4096_gb3072_sp1_pp1_tp1_bf16_optadamw_lr_lwf_flash TRAIN_TOKENS=$((22*10**9)) GRAD_ACC_STEPS=16 LR=0.0002 LR_WARMUP_FRACTION=0.01 bash train_alcf.sh --universal-checkpoint --finetune
+```
+Here, we are rewarming to the original learning but you can rewarm to any LR you seem fit. by just setting a different value for LR For example, we tested rewarming to LR/2 i.e **LR=0.0001** and 2LR as well.
+Here the following options options/flags should be:
+```bash
+DATA_FILE_LIST=path/to/your/tokenized/data
+LOAD=path/to/your/universal/checkpoint
+SAVE=path/to/where/you/want/to/save/checkpoints
+--universal-checkpoint to load a universal checkpoint (not needed if checkpoint not universal)
+```
+Note that you might need to convert your checkpoints following [the instructions](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/ALCF/notes/universal_checkpoint_bug.md) here.
+
 ##### If loss is not recovering, one can:
    - take a converged checkpoint **i.e after cooling it down** and experiment with rewarming the LR to a different value and the data mixing strategy by increasing the pretraining data weight.
    - If still no luck, I'd:
@@ -102,20 +117,23 @@ if __name__ == '__main__':
      b. Continue training with the base dataset with (i) a cosine scheduler decaying to **LR_max/100** or (ii) cooldown to **LR_max/100**. (I would experiment with both if resources allow)
      c. Introduce the new dataset at **LR=LR_max/5**. When introducing the new dataset, you use a mixed one i.e you should not exclusively use the new dataset.This is basically the recipe here [recipe](https://arxiv.org/pdf/2407.07263v1)
 
-My guess is that since the distribution shift is not too strong between phase I and phase II data, you will not need to experiment with step 5.
+My guess is that since the distribution shift is not too strong between stage I and stage II data, you will not need to experiment with the latter.
 
 #### Stage 2 to stage 3 (shift to math/code datasets)
-1. Start by trying the above strategy i.e mixing from the previous stage 1 training set then do the same.
+1. Start by trying the above strategy i.e mixing from the previous stage 1 training set (the one obtained after mixing) then follow the same steps.
 2. If loss is not recovering, use the buffer. Mix from $D_0$, the current dataset $D_2$ and the buffer B. You should try weights 0.05 for D_0, 0.48 for D_1, and 0.47 for B then 0, 0.1, 0.9. Some explorations might be needed here. Do not forget to add data from D_2 to the buffer for the next training stage
 3. If all fail:
-    - take a converged checkpoint **i.e after cooling it down** and experiment with rewarming the LR to a different value and the data mixing strategy by increasing the pretraining data weight.
-   - If still no luck, I'd:
-     a. take an earlier not converged checkpoint
-     b. Continue training with the base dataset with (i) a cosine scheduler decaying to **LR_max/100** or (ii) cooldown to **LR_max/100**. (I would experiment with both if resources allow)
-     c. Introduce the new dataset at **LR=LR_max/5**. When introducing the new dataset, you use a mixed one i.e you should not exclusively use the new dataset.This is basically the recipe here [recipe](https://arxiv.org/pdf/2407.07263v1)
+   a. Do the following
+     i. take a checkpoint before convergence **i.e before cooldown**
+     ii. Continue training with the base dataset with (i) a cosine scheduler decaying to **LR_max/100** or (ii) cooldown to **LR_max/100**. (I would experiment with both if resources allow)
+     iii. Introduce the new dataset at **LR=LR_max/5**. When introducing the new dataset, you use a mixed one i.e you should not exclusively use the new dataset. This is basically the recipe here [recipe](https://arxiv.org/pdf/2407.07263v1)
+   If that does not work,
+    b. take a converged checkpoint **i.e after cooling it down** and experiment with rewarming the LR to a different value and the data mixing strategy by increasing the pretraining data weight.
 
 #### Stage 3 to stage 4 (shift to reasoning tracex)
-Try the same strategies as above.
+Try the same strategies as above. My guess here is you will (need the buffer and balance the weights across the 3 data sources) OR (need to do step 3a.)
+
+
 
 ## Legacy agpt-7b checkpoints
 This is for doing CPT on the initial agpt-7B checkpoint where a cosine scheduler was used from `lr=0.0002` to 0. Here, the CPT stratregy followed is the [replay+rewarm one](https://arxiv.org/pdf/2403.08763) where we replay a small amount of data from the initial pretraining dataset and mix it with the cpt one. The steps are as follows:
@@ -137,32 +155,10 @@ LOAD=path/to/your/universal/checkpoint
 SAVE=path/to/where/you/want/to/save/checkpoints
 --universal-checkpoint to load a universal checkpoint (not needed if checkpoint not universal)
 ```
-## New agpt runs (phase 1 -> phase 2: weak distribution shift)
-For the new runs, we are using a constant LR with cooldowns. The advantage of using a constant LR is to forego the need of rewarming. Furthermore, with the cooldown, one can train a model to convergence at any point of training without committing to a token budget.
-
-To do CPT here, 
-1. Convert checkpoint to an universal checkpoint (if running for example on smaller num of gpus), **YOU NEED TO USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN**
-2.  Mix the datasets as above, I would try different mixing weights here to experiment with
-3. set `export LR_WARMUP_FRAC=0.0` in order to not rewarm
-4. Run
-```bash
-DATA_FILE_LIST=./ALCF/data-lists/aurora/mix_lucid_papers_dolma.txt LOAD=/flare/AuroraGPT/AuroraGPT-v0/checkpoint-copies/checkpoints/ws768_ds_stage1_nl32_hs4096_mb1_seq4096_gb3072_sp1_pp1_tp1_bf16_optadamw_lr_lwf_flash TRAIN_TOKENS=$((22*10**9)) GRAD_ACC_STEPS=16 LR=0.0002 LR_DECAY_STYLE=constant bash train_alcf.sh --universal-checkpoint --finetune --lr_constant_plus_cooldown 
-```
-5. If loss curve not recovering after a while or loss is diverging, one can:
-   - take a converged checkpoint **i.e after cooling it down** and experiment with rewarming the LR to a different value, data mixing strategy etc as we did with the legacy model.
-   - If still no luck, I'd:
-     a. take an earlier not converged checkpoint
-     b. Continue training with the base dataset with a cosine scheduler decaying to **LR_max/100** or cooldown to **LR_max/100**. (I would experiment with both if resources allow)
-     c. Introduce the new dataset at **LR=LR_max/5**. When introducing the new dataset, you use a mixed one i.e you should not exclusively use the new dataset.This is basically the recipe here [recipe](https://arxiv.org/pdf/2407.07263v1)
-
-My guess is that since the distribution shift is not too strong between phase I and phase II data, you will not need to experiment with step 5.
-
-## New agpt runs (phase 2 -> phase 3 or phase 3 -> phase 4: strong distribution shift)
-I'd try steps 1-4 above and put more weight on phase 2 (then phase 3) data when mixing in the new datasets. If no luck, step 5 should work here.
  
      
 
-## To do list
+## Worth exploring
 Follow and implement the [recipe](https://arxiv.org/pdf/2407.07263v1) where the new dataset is incrementally introduced. This might be advantageous for example when the new dataset is QAs as opposed to pure text. Here:
 1. If base model LR was decayed to 0, one might need to rewarm it before following the recipe
 2. Constant/infinite LR schedule was used, one might experiment with the recipe as is.
