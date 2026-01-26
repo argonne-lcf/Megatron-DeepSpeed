@@ -4,7 +4,7 @@ In this document, we focus on three CPT approaches: a **data centric strategy**,
 - Model architecture
 - Sequence length
 - Optimizer (although it might be interesting testing how changing optimizers across stages affect training)
-- Evaluation tasks
+- Evaluation/validation tasks (need to be consistent across stages)
 
 In all that follows, we suppose the base model was trained on dataset $D_0$ and label the subsequent datasets $D_i$, $i = 1\cdotsN$. What it means for us is that stage 1 is training with $D_0$, stage 2 is training with $D_1$, stage 3 with $D_3$ and stage 4 with $D_3$. A CPT strategy for the legacy model (agpt-7B) can be found at the end of the document.
 
@@ -13,6 +13,7 @@ For these runs, we have 4 stages of training with the first stage producing the 
 ## Data centric strategy ##
 The main thing to figure out here is the data mixing strategy. We need to sample from the pretraining dataset $D_0$, the current one $D_i$, and we also might need to sample from a buffer $B$ that contains data from the previous stages $D_1,\cdots,D_{i-1}$. See the figure below from this [paper](https://arxiv.org/pdf/2408.14471)
 ![data mixing](./assets/CPT_data_mixing.png)
+Note that you add data to the buffer B after the current step to be used for the next one i.e at sampling time, B only contains data from previous stages.
 
 #### Stage 1 to stage 2 (weak distribution shift)
 ##### First strategy to try
@@ -21,7 +22,7 @@ The main thing to figure out here is the data mixing strategy. We need to sample
  ```bash
 python3 mix_datasets.py --input 0.9 /flare/Aurora_deployment/AuroraGPT/datasets/papers/papers.txt 0.1 /flare/Aurora_deployment/AuroraGPT/datasets/dolma/dolma_v1_7_file_list_v2.txt > ${debug_dir}/Megatron-DeepSpeed/ALCF/data-lists/aurora/mix_lucid_papers09_dolma01.txt
 ```
-This means you are replaying 10% of dolma and doing CPT with lucid. You should also start building the buffer $B$ in prevision of the next stages.
+This means you are replaying 10% of dolma and doing CPT with lucid. 
 For convenience, here is a copy of the ***mix_datasets.py*** script
 ```bash
 #!/usr/bin/env python3
@@ -101,12 +102,11 @@ def main():
 if __name__ == '__main__':
     main()
 ```
-2. Run the following cpt command from the Megatron-deepspeed folder (you can modify GRAD_ACC_STEPS according to the batch size you want to do CPT with):
-
+2. Start building the buffer $B$ in prevision of the next stages.
+3. Run the following cpt command from the Megatron-deepspeed folder (you can modify GRAD_ACC_STEPS according to the batch size you want to do CPT with):
 ```bash
-DATA_FILE_LIST=./ALCF/data-lists/aurora/mix_lucid_papers_dolma.txt LOAD=/flare/AuroraGPT/AuroraGPT-v0/checkpoint-copies/checkpoints/ws768_ds_stage1_nl32_hs4096_mb1_seq4096_gb3072_sp1_pp1_tp1_bf16_optadamw_lr_lwf_flash TRAIN_TOKENS=$((22*10**9)) GRAD_ACC_STEPS=16 LR=0.0002 LR_WARMUP_FRACTION=0.01 bash train_alcf.sh --universal-checkpoint --finetune
+DATA_FILE_LIST=./ALCF/data-lists/aurora/mix_lucid_papers_dolma.txt LOAD=/flare/AuroraGPT/AuroraGPT-v0/checkpoint-copies/checkpoints/ws768_ds_stage1_nl32_hs4096_mb1_seq4096_gb3072_sp1_pp1_tp1_bf16_optadamw_lr_lwf_flash TRAIN_TOKENS=$((22*10**9)) GRAD_ACC_STEPS=16 LR_WARMUP_FRACTION=0.01 bash train_alcf.sh --universal-checkpoint --finetune
 ```
-Here, we are rewarming to the original learning but you can rewarm to any LR you seem fit. by just setting a different value for LR For example, we tested rewarming to LR/2 i.e **LR=0.0001** and 2LR as well.
 Here the following options options/flags should be:
 ```bash
 DATA_FILE_LIST=path/to/your/tokenized/data
