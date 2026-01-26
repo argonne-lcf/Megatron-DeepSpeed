@@ -1,12 +1,18 @@
 # CPT
-CPT is the process of continually pre-training a model on new data. The goal of CPT is to continue training on new data while retaining previously learned knowledge and avoiding forgetting. When compared to finetuning, the goal of CPT is not to improve the model knowledge and performance on a given downstream task but to retain and improve current knowledge as more data are being streamed.
-This document serves as a strategy cookbook for our current runs. A CPT strategy for the legacy model (agpt-7B) can be found at the end of the document. Here we focus mainly on the learning rate schedules and the data mixing strategy. 
-We are not exploring alternative approaches like **model merging** which might be worth considering especially when we train on the math and code dataset.
-Here, we suppose the base model was trained on dataset $D_0$ and label the subsequent datasets $D_i$, $i = 1, \cdots, N$. So stage 1 is training with $D_0$, stage 2 is training with $D_1$, stage 3 with $D_3$ and stage 4 with $D_3$.
+This document serves as a strategy cookbook for our current runs. CPT is the process of continually pre-training a model on new data. The goal of CPT is to continue training on new data while retaining previously learned knowledge and avoiding forgetting. When compared to finetuning, the goal of CPT is not to improve the model knowledge and performance on a given downstream task but to retain and improve current knowledge as more data are being streamed while avoiding catastrophic forgetting.
+In this document, we focus on three CPT approaches: a **data centric strategy**, an **optimization (LR) strategy**, and a third one mixing both. This means that the following are **fixed** across all runs:
+- Model architecture
+- Sequence length
+- Optimizer (although it might be interesting testing how changing optimizers across stages affect training)
+- Evaluation tasks
 
-## AuroraGPT V1
-Here we are using infinite schedulers where we warmed up the LR up to LR_max then kept it constant before cooling it down. The advantage of using this is to avoid the need of rewarming the LR when doing continual pretraining. 
-Since we have several training stages, one need to keep a buffer $B$ that contains previous training datasets. Recall at stage $i$, we have the pretraining dataset $D_0$, and previous CPT datasets $D_1,\cdots, D_{i-1}$. The buffer B will contain samples from $D_1,\cdots, D_{i-1}$. 
+In all that follows, we suppose the base model was trained on dataset $D_0$ and label the subsequent datasets $D_i$, $i = 1\cdotsN$. What it means for us is that stage 1 is training with $D_0$, stage 2 is training with $D_1$, stage 3 with $D_3$ and stage 4 with $D_3$. A CPT strategy for the legacy model (agpt-7B) can be found at the end of the document.
+
+## AuroraGPT V1 (Stages 1 to 4)
+For these runs, we have 4 stages of training with the first stage producing the pretrained or base model. A key element here is the learning rate scheduler that was used. In fact, as opposed to the legacy model, we used an infinite scheduler where the LR was warmed up to $LR_{max}$ then kept constant before cooling it down to convergence. The main advantage of this is to avoid rewarming the LR when doing CPT which can lead to instabilities. Therefore, we mostly adopt a data centric strategy here but might resort to playing with the LRs if needed. The dataset $D_0$ for pretraining is Olmo-mix and has 4 Trillion tokens, then $D_1$ has 2 Trillion tokens from Dolmino and fineweb Edu meaning the data distribution between these two stages is weak. We then have $D_2$ for stage 3 that has 1.5 trillion tokens from math, code, ans science papers. Finally, we have $D_3$ stage 4 made of 0.5 trillion tokens from reasoning traces. 
+## Data centric strategy ##
+The main thing to figure out here is the data mixing strategy. We need to sample from the pretraining dataset $D_0$, the current one $D_i$, and we also might need to sample from a buffer $B$ that contains data from the previous stages $D_1,\cdots,D_{i-1}$. See the figure below from this [paper](https://arxiv.org/pdf/2408.14471)
+![data mixing](./assets/CPT_data_mixing.png)
 
 #### Stage 1 to stage 2 (weak distribution shift)
 ##### First strategy to try
