@@ -138,27 +138,6 @@ if __name__ == '__main__':
 3. **Run CPT**: Load your checkpoint and run CPT with the --finetube flag.
 Note that you might need to convert your checkpoints following [these instructions](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/ALCF/notes/universal_checkpoint_bug.md) to a universal checkpoint.
 
-##### Strategy 3: If loss is not recovering after increasing the pretraining data weight, one can switch to a LR centric approach:
-If increasing the replay weight from the pretraining dataset does not lead to loss recovery, switch to a **LR-centric approach**.
-
-- Start from a **converged checkpoint** (i.e., *after* LR cooldown).
-- Experiment with **rewarming the LR** to a higher value and continuing training.
-
-If this still does not lead to recovery, proceed as follows:
-
-a. Take an **earlier, not fully converged checkpoint**.  
-b. Continue training on the **base dataset only** using one of:
-   - (i) a cosine scheduler decaying to **LR_max / 100**, or  
-   - (ii) a cooldown schedule down to **LR_max / 100**.  
-   *(If resources allow, experiment with both.)*  
-c. Introduce the new dataset at **LR = LR_max / 5**.  
-   When introducing the new dataset, use a **mixed dataset** with  
-$\alpha_0 > 0$; the new dataset should **not** be used exclusively. This procedure follows the recipe described in  [this work](https://arxiv.org/pdf/2407.07263v1). Here I would give more weight to $D_0$ and vary $\alpha_0$ from 0.7 to 0.9.
-
-**Expectation.**  
-Given that the distribution shift between Stage I and Stage II data is relatively weak,
-the naive continuation strategy or the replay-based strategy is likely to suffice,
-and the more aggressive LR-centric procedure may not be necessary.
 
 #### Stage 2 to stage 3 (shift to math/code datasets)
 ##### Naive strategy
@@ -199,7 +178,7 @@ If all previous strategies fail, apply the following procedure:
   - a cooldown to **`LR_max / 100`**.  
   *(If resources allow, experiment with both.)*
 - Introduce the new dataset at **`LR = LR_max / 5`**.
-- When introducing the new dataset, **do not train on it exclusively**; always use a **mixed dataset**.
+- When introducing the new dataset, **do not train on it exclusively**; always use a **mixed dataset**. Here try $\alpha_0=0.8 - 0.6$
 
 This follows the general recipe described in  
 [https://arxiv.org/pdf/2407.07263v1](https://arxiv.org/pdf/2407.07263v1)
@@ -217,16 +196,17 @@ If Strategy 4 does not work:
 #### Stage 3 to stage 4 (shift to reasoning tracex)
 At this point, we only have ~6% of training left and one should start the final decay.
 1. Try
-**Mix A:**  
+ **Mix A:**  
   - `D0`: 0.33  
   - `D_3`: 0.33  
   - `B`: 0.34
-
-**Mix B:**  
+ **Mix B:**  
   - `D0`: 0.5  
   - `D_3`: 0.25  
   - `B`: 0.25
-2. Cooldown/decay the LR to convergence
+2. Cooldown/decay the LR to convergence.
+
+### Summary
 
 
 ## Legacy agpt-7b checkpoints
