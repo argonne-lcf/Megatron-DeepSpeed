@@ -60,7 +60,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "${COOL_R}" ]] || die "--cool-R (cooldown steps) is required"
+# if [[ -n "${COOL_R}" ]] && [[ -n ${COOLDOWN_PCT} ]]; then
+#     die "--cool-R (cooldown steps) or --cooldown-percent required"
+# fi
+
+# if [[ -n "${COOL_R}" && -n "${COOLDOWN_PCT}" ]]; then
+#     die "--cool-R (cooldown steps) or --cooldown-percent required"
+# fi
+
+# [[ -n "${COOL_R}" ]] || die "--cool-R (cooldown steps) is required"
 [[ -n "${LOAD_PATH}" ]] || die "--load path is required"
 [[ -n "${PHASE1_LIST}" ]] || die "--phase1-list is required (IDs 1..4)"
 [[ -n "${PHASE2_LIST}" ]] || die "--phase2-list is required (IDs 5..7)"
@@ -68,7 +76,7 @@ done
 mkdir -p "${EMIT_DIR}"
 
 # 1) Build the checkpoint table (1..7T + rollback)
-${PYTHON} build_checkpoints_from_tokens.py \
+${PYTHON} tools/cooldown_generator/build_checkpoints_from_tokens.py \
   --ttokens "${T_TOTAL}" \
   --tokens-per-step "${TOKENS_PER_STEP}" \
   --cooldown-percent "${COOLDOWN_PCT}" \
@@ -89,7 +97,7 @@ tail -n +2 "${EMIT_DIR}/checkpoints.tsv" | while IFS=$'\t' read -r id smod srb; 
 
   # exact-T
   OUT_EX="${EMIT_DIR}/cooldown_id${id}_exact.sh"
-  ${PYTHON} make_cooldown_cmds.py \
+  ${PYTHON} tools/cooldown_generator/make_cooldown_cmds.py \
     --load "${LOAD_PATH}" \
     --data-file-list "${DATA_LIST}" \
     --train-script "${TRAIN_SCRIPT}" \
@@ -104,7 +112,7 @@ tail -n +2 "${EMIT_DIR}/checkpoints.tsv" | while IFS=$'\t' read -r id smod srb; 
   # rollback (only if positive)
   if (( srb > 0 )); then
     OUT_RB="${EMIT_DIR}/cooldown_id${id}_rollback.sh"
-    ${PYTHON} make_cooldown_cmds.py \
+    ${PYTHON} tools/cooldown_generator/make_cooldown_cmds.py \
       --load "${LOAD_PATH}" \
       --data-file-list "${DATA_LIST}" \
       --train-script "${TRAIN_SCRIPT}" \
