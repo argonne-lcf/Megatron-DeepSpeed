@@ -1,15 +1,24 @@
 # CPT
-This document serves as a strategy cookbook for our current runs. CPT is the process of continually pre-training a model on new data. The goal of CPT is to continue training on new data while retaining previously learned knowledge and avoiding forgetting. When compared to finetuning, the goal of CPT is not to improve the model knowledge and performance on a given downstream task but to retain and improve current knowledge as more data are being streamed while avoiding catastrophic forgetting.
+This document serves as a strategy cookbook for our current runs. 
+CPT is the process of continually pre-training a model on new data. The goal of CPT is to continue training on new data while retaining previously learned knowledge and avoiding forgetting. When compared to finetuning, the goal of CPT is not to improve the model knowledge and performance on a given downstream task but to retain and improve current knowledge as more data are being streamed while avoiding catastrophic forgetting.
 In this document, we focus on three CPT approaches: a **data centric strategy**, an **optimization (LR) strategy**, and a third one mixing both. This means that the following are **fixed** across all runs:
 - Model architecture
 - Sequence length
 - Optimizer (although it might be interesting testing how changing optimizers across stages affect training)
-- Evaluation/validation tasks (need to be consistent across stages)
+- Evaluation/validation tasks (needs to be fixed from the start and be consistent across stages)
 
 In all that follows, we suppose the base model was trained on dataset $D_0$ and label the subsequent datasets $D_i$, $i = 1\cdotsN$. What it means for us is that stage 1 is training with $D_0$, stage 2 is training with $D_1$, stage 3 with $D_3$ and stage 4 with $D_3$. A CPT strategy for the legacy model (agpt-7B) can be found at the end of the document.
 
 ## AuroraGPT V1 (Stages 1 to 4)
-For these runs, we have 4 stages of training with the first stage producing the pretrained or base model. A key element here is the learning rate scheduler that was used. In fact, as opposed to the legacy model, we used an infinite scheduler where the LR was warmed up to $LR_{max}$ then kept constant before cooling it down to convergence. The main advantage of this is to avoid rewarming the LR when doing CPT which can lead to instabilities. Therefore, we mostly adopt a data centric strategy here but might resort to playing with the LRs if needed. The dataset $D_0$ for pretraining is Olmo-mix and has 4 Trillion tokens, then $D_1$ has 2 Trillion tokens from Dolmino and fineweb Edu meaning the data distribution between these two stages is weak. We then have $D_2$ for stage 3 that has 1.5 trillion tokens from math, code, ans science papers. Finally, we have $D_3$ stage 4 made of 0.5 trillion tokens from reasoning traces. 
+For these runs, we have 4 stages of training with the first stage producing the pretrained or base model. A key element here is the learning rate scheduler that we are using. In fact, as opposed to the legacy model, we used an infinite scheduler where the LR was warmed up to $LR_{max}$ then kept constant before cooling it down to convergence. The main advantage of this is to avoid rewarming the LR when doing CPT which can lead to instabilities. Therefore, we mostly adopt a data centric strategy here but might resort to playing with the LRs if needed. The dataset $D_0$ for pretraining is Olmo-mix and has 4 Trillion tokens, then $D_1$ has 2 Trillion tokens from Dolmino and fineweb Edu meaning the data distribution between these two stages is weak. We then have $D_2$ for stage 3 that has 1.5 trillion tokens from math, code, ans science papers. Finally, we have $D_3$ stage 4 made of 0.5 trillion tokens from reasoning traces. 
+
+| Stage | Dataset Symbol | Size | Source / Path | Notes |
+|------:|----------------|----------------------|---------------|-------|
+| 0 | D₀ |  4T | Olmo-mix | Pretraining dataset |
+| 1 | D₁ | 2T | Dolmino and fineweb Edu | CPT stage 1 |
+| 2 | D₂ | 1.5T | Olmo-Mix, Open Alex, and proof pile II | CPT stage 2 |
+| 3 | D₃ | 0.5T |Olmo-Mix, OpenMathInstruct, CoT Collection, AQUA-RAT, Llama-Nemotron Dataset, GSM8K, OpenHermes  | CPT stage 3 |
+
 ## Data centric strategy ##
 The main thing to figure out here is the data mixing strategy. To avoid catastrophic forgetting, we need to sample from the pretraining dataset $D_0$, the current one $D_i$, and we also might need to sample from a buffer $B$ that contains data from the previous stages $D_1,\cdots,D_{i-1}$. Which means we need sampling weights $\alpha_0$ for the pretraining data, $\alpha_D$ for the current dataset, and $\alpha_B$ for the buffer dataset with $\alpha_0 + \alpha_D + \alpha_D = 1$.
 See the figure below from this [paper](https://arxiv.org/pdf/2408.14471)
