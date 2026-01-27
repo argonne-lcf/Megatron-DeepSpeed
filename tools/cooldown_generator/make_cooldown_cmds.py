@@ -73,7 +73,9 @@ def main():
     p.add_argument("--min-lr", type=float, default=2e-5)
     p.add_argument("--no-override-ckpt-opt", action="store_true")
     p.add_argument("--extra-args", default="")
-    p.add_argument("--emit-sh", type=Path, default=None)
+    p.add_argument("--emit-sh", action="store_true", default=None)
+    p.add_argument("--split-by-id", action="store_true")
+    p.add_argument("--include-header", default=None, type=str)
 
     p.add_argument("--checkpoint-iters", "-S", type=int, nargs="+")
     p.add_argument("--cooldown-steps", "-R", type=int, nargs="+")
@@ -96,9 +98,14 @@ def main():
                    for R in args.cooldown_steps]
 
     lines = []
-    header = "# Auto-generated cooldown commands\nset -euo pipefail\n\n"
-    if args.emit_sh:
-        lines.append(header)
+    # header = "# Auto-generated cooldown commands\nset -euo pipefail\n\n"
+    if args.include_header:
+        if (hfp :=Path(args.include_header)).is_file():
+            with hfp.open("r") as f:
+                lines.extend(f.readlines())
+        else:
+            lines.extend("\n".join(args.include_header.split("\n")))
+    # if args.emit_sh:
 
     for rec in records:
         cid, S, R = rec["id"], rec["S"], rec["R"]
@@ -118,13 +125,21 @@ def main():
             extra_args=args.extra_args.strip(),
         )
         block = f"{tag}\n{cmd}\n"
-        print(block)
         if args.emit_sh:
-            lines.append(block + "\n")
+            outfile = f"cooldown_{cid}.sh"
+            with open(outfile, "w") as f:
+                f.write("".join(lines))
+                f.writelines(block + "\n")
+        else:
+            print(block + "\n")
+            # lines.append(block + "\n")
 
-    if args.emit_sh:
-        args.emit_sh.write_text("\n".join(lines))
-        print(f"# Wrote script to: {args.emit_sh}")
+    # if args.emit_sh:
+    #     for rec in records:
+    #         cid, S, R = rec["id"], rec["S"], rec["R"]
+    #
+    #         args.emit_sh.write_text("\n".join(lines))
+        # print(f"# Wrote script to: {args.emit_sh}")
 
 if __name__ == "__main__":
     main()
