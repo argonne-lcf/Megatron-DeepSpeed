@@ -11,6 +11,7 @@ In this document, we focus on three CPT approaches: a **data centric strategy**,
 In all that follows, we suppose the base model was trained on dataset $D_0$ and label the subsequent datasets $D_i$, $i = 1\cdotsN$. What it means for us is that stage 1 is training with $D_0$, stage 2 is training with $D_1$, stage 3 with $D_3$ and stage 4 with $D_3$. We call the training data used to do CPT at stage i $D^{CPT}_{i}$ A CPT strategy for the legacy model (agpt-7B) can be found at the end of the document.
 
 ## AuroraGPT V1 (Stages 1 to 4)
+![different stages](./assets/cpt_images/stages_training_initial-1.png)
 For these runs, we have 4 stages of training with the first stage producing the pretrained or base model. A key element here is the learning rate scheduler that we are using. In fact, as opposed to the legacy model, we used an infinite scheduler where the LR was warmed up to $LR_{max}$ then kept constant before cooling it down to convergence. The main advantage of this is to avoid rewarming the LR when doing CPT which can lead to instabilities. Therefore, we mostly adopt a data centric strategy here but might resort to playing with the LRs if needed. The dataset $D_0$ for pretraining is Olmo-mix and has 4 Trillion tokens, then $D_1$ has 2 Trillion tokens from Dolmino and fineweb Edu meaning the data distribution between these two stages is weak. We then have $D_2$ for stage 3 that has 1.5 trillion tokens from math, code, ans science papers. Finally, we have $D_3$ stage 4 made of 0.5 trillion tokens from reasoning traces. 
 
 | Stage | Dataset Symbol | Size | Source / Path | Notes |
@@ -23,7 +24,7 @@ For these runs, we have 4 stages of training with the first stage producing the 
 ## Data centric strategy ##
 The main thing to figure out here is the data mixing strategy. To avoid catastrophic forgetting, we need to sample from the pretraining dataset $D_0$, the current one $D_i$, and we also might need to sample from a buffer $B$ that contains data from the previous stages $D_1,\cdots,D_{i-1}$. Which means we need sampling weights $\alpha_0$ for the pretraining data, $\alpha_D$ for the current dataset, and $\alpha_B$ for the buffer dataset with $\alpha_0 + \alpha_D + \alpha_D = 1$.
 See the figure below from this [paper](https://arxiv.org/pdf/2408.14471)
-![data mixing](./assets/CPT_data_mixing.png)
+![data mixing](./assets/cpt_images/CPT_data_mixing.png)
 Note that you add data to the buffer B after the current step to be used for the next one i.e at sampling time, B only contains data from previous stages.
 
 #### Stage 1 to stage 2 (weak distribution shift)
@@ -50,6 +51,7 @@ No buffer data is used at this stage, $\alpha_B=0$.
 
 > In practice, $\alpha_0 = 0.05$ is often a safe starting point.
 > Increase up to 25–30% only if forgetting is observed.
+![stage 1 to 2](./assets/cpt_images/strategy_cpt_stage1tostage2-1.png)
 **Dataset construction**
    Use [mix_datasets.py](https://github.com/zhenghh04/blendcorpus/blob/main/utils/mix_datasets.py) function to build your cpt dataset. For example, to mix the lucid papers with weight 0.9 and the dolma dataset with weight 0.1, you do
  ```bash
@@ -139,14 +141,17 @@ if __name__ == '__main__':
 Note that you might need to convert your checkpoints following [these instructions](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/ALCF/notes/universal_checkpoint_bug.md) to a universal checkpoint.
 
 At the end of this stage, we have ***$D^{CPT}_1$***.
+
+
 #### Stage 2 to stage 3 (shift to math/code datasets)
 ##### Naive strategy
 You can try the naive approach but it might not work here, stop early if loss does not recover.
 ##### Strategy 2
 Mix in the final dataset $D^{CPT}_1$ used in Stage 1.
-1. Construct a mixed dataset containing the final dataset used in stage 2 and $D_3$.
+1. Construct a mixed dataset containing the final dataset $D^{CPT}_1$ used in stage 2 and $D_3$.
 2. Follow the same procedure as in the previous mixing strategy. At this point, the model has seen 6T tokens and $D_3$ contains 1.5T. Here, give $D_3$ less weight.
 ##### Strategy 3
+![stage 2 to 3](./assets/cpt_images/strategy_cpt_stage2tostage3-1.png)
 If the loss is not recovering, sample from $D_0$, $D_2$ (not the final mix after stage 1), and the buffer $B$.
 Start with the following candidate weights (some exploration may be required):
  - **Mix A:**  
@@ -168,8 +173,8 @@ Notes:
 - The buffer should contain representative or difficult samples from earlier stages.
 - **Important:** Add samples from `D2` to the buffer at the end of this stage for use in the next training stage.
 
-##### Strategy 4 — Reset + controlled reintroduction (if all else fails)
-
+##### Strategy 4 (if all else fails)
+![stage 2 to 3 decay](./assets/cpt_images/strategy3_cpt_stage2tostage3_decay-1.png)
 If all previous strategies fail, apply the following procedure:
 
 - Take a checkpoint **before convergence** (i.e., **before cooldown**).
@@ -183,7 +188,7 @@ If all previous strategies fail, apply the following procedure:
 This follows the general recipe described in  
 [https://arxiv.org/pdf/2407.07263v1](https://arxiv.org/pdf/2407.07263v1)
 
-##### Strategy 5 — Rewarm from a converged checkpoint (last resort)
+##### Strategy 5 (last resort)
 
 If Strategy 4 does not work:
 
@@ -194,6 +199,7 @@ If Strategy 4 does not work:
 
 At the end of this stage, we have ***$D^{CPT}_2$***.
 #### Stage 3 to stage 4 (shift to reasoning tracex)
+![stage 3 to 4](./assets/cpt_images/strategy_cpt_stage3tostage4-1.png)
 At this point, we only have ~6% of training left and one should start the final decay.
 ***If we didn't use Strategy 4 above:***
 1. Try
@@ -209,7 +215,7 @@ At this point, we only have ~6% of training left and one should start the final 
 
 ***If we did use Strategy 4 above:***
 We should keep decaying with $D^{CPT}_2$ until $LR_3/100$ then introduce the new mix at $LR_3/5$
-### Summary
+![stage 3 to 4 previous devay](./assets/cpt_images/strategy3_cpt_stage3tostage4ifprevdecay-1.png)
 
 
 ## Legacy agpt-7b checkpoints
