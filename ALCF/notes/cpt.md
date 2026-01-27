@@ -28,26 +28,26 @@ Note that you add data to the buffer B after the current step to be used for the
 #### Stage 1 to stage 2 (weak distribution shift)
 ##### Strategy 1: No replay
 **Important: USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN**
-Just naively continue training with D_1, no replay data. 
-- Continue training using only the current dataset \( D_1 \)
-- No replay from \( D_0 \) or buffer data
+Just naively continue training with $D_1$, no replay data. 
+- Continue training using only the current dataset $D_1$
+- No replay from $D_0$ or buffer data
 This may be sufficient under weak distribution shift but there is potential risks of forgetting
 
 ##### Strategy 2: Replay from pretraining dataset
  **Important: USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN**. Then,
  1. ***Replay the pretraining dataset***
  We mix data from:
-- the pretraining dataset \( D_0 \),
-- the current CPT dataset \( D_1 \).
+- the pretraining dataset $D_0$,
+- the current CPT dataset $D_1$.
 
-No buffer data is used at this stage, \( \alpha_B=0 \).
+No buffer data is used at this stage, $\alpha_B=0$.
 
 **Initial mixing weights**
 - Start conservatively:
-  - \( \alpha_0 = 0.05 \)–\(0.10 \)
-  - \( \alpha_D = 1 - \alpha_0 \)
+  - $\alpha_0 = 0.05$–$0.10$
+  - $\alpha_D = 1 - \alpha_0$
 
-> In practice, \( \alpha_0 = 0.05 \) is often a safe starting point.
+> In practice, $\alpha_0 = 0.05$ is often a safe starting point.
 > Increase up to 25–30% only if forgetting is observed.
 **Dataset construction**
    Use [mix_datasets.py](https://github.com/zhenghh04/blendcorpus/blob/main/utils/mix_datasets.py) function to build your cpt dataset. For example, to mix the lucid papers with weight 0.9 and the dolma dataset with weight 0.1, you do
@@ -137,7 +137,7 @@ if __name__ == '__main__':
 3. **Run CPT**: Load your checkpoint and run CPT with the --finetube flag.
 Note that you might need to convert your checkpoints following [these instructions](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/ALCF/notes/universal_checkpoint_bug.md) to a universal checkpoint.
 
-##### If loss is not recovering after increasing the pretraining data weight, one can switch to a LR centric approach:
+##### Strategy 3: If loss is not recovering after increasing the pretraining data weight, one can switch to a LR centric approach:
 If increasing the replay weight from the pretraining dataset does not lead to loss recovery, switch to a **LR-centric approach**.
 
 - Start from a **converged checkpoint** (i.e., *after* LR cooldown).
@@ -152,10 +152,7 @@ b. Continue training on the **base dataset only** using one of:
    *(If resources allow, experiment with both.)*  
 c. Introduce the new dataset at **LR = LR_max / 5**.  
    When introducing the new dataset, use a **mixed dataset** with  
-   \( \alpha_0 > 0 \); the new dataset should **not** be used exclusively.
-
-This procedure follows the recipe described in  
-[this work](https://arxiv.org/pdf/2407.07263v1).
+$\alpha_0 > 0$; the new dataset should **not** be used exclusively. This procedure follows the recipe described in  [this work](https://arxiv.org/pdf/2407.07263v1). Here I would give more weight to $D_0$ and vary $\alpha_0$ from 0.7 to 0.9.
 
 **Expectation.**  
 Given that the distribution shift between Stage I and Stage II data is relatively weak,
@@ -163,8 +160,12 @@ the naive continuation strategy or the replay-based strategy is likely to suffic
 and the more aggressive LR-centric procedure may not be necessary.
 
 #### Stage 2 to stage 3 (shift to math/code datasets)
-1. You can try the naive approach but it might not work here. Then,
-2. Try the second strategy above i.e mixing from the previous stage 1 training set (the one obtained after mixing) then follow the same steps.
+
+
+
+
+1. You can try the naive approach but it might not work here,
+2. Try the second strategy above i.e mixing from the final dataset used in stage 1 then follow the same steps.
 3. If loss is not recovering, use the buffer. Mix from $D_0$, the current dataset $D_2$ and the buffer B. You should try weights 0.05 for D_0, 0.48 for D_1, and 0.47 for B then 0, 0.1, 0.9. Some explorations might be needed here. Do not forget to add data from D_2 to the buffer for the next training stage
 4. If all fail, do the following
  - take a checkpoint before convergence **i.e before cooldown**
