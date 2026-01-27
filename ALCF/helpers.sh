@@ -231,7 +231,7 @@ setup_run_cmd() {
 		"--num-attention-heads=${HEADS}"
 		"--optimizer=${OPT}"
 		"--pipeline-model-parallel-size=${PP}"
-		"--rotary-position-embeddings-theta=${ROPE_THETA:-5000000}"
+		"--rotary-position-embeddings-theta=${ROPE_THETA:-50000}"
 		"--save=${SAVE:-${CKPT_DIR}}"
 		"--seq-length=${SEQ}"
 		"--split=${TRAIN_SPLIT:-990},${VAL_SPLIT:-10},${TEST_SPLIT:-0}"
