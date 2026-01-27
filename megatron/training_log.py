@@ -26,6 +26,7 @@ from megatron.utils import (
     num_floating_point_operations,
 )
 
+import csv
 
 RANK: int = ez.get_rank()
 WORLD_SIZE: int = ez.get_world_size()
@@ -101,7 +102,7 @@ def training_log(
     total_loss_dict[nan_iters_key] = total_loss_dict.get(nan_iters_key, 0) + int(
         got_nan
     )
-
+    
     # Logging.
     timers_to_log = [
         "forward-backward",
@@ -262,6 +263,11 @@ def training_log(
                 params_norm,
                 args.consumed_train_tokens,
             )
+            ### AG Debug ###
+            print("------- param norm --------")
+            print(params_norm)
+            print("------- param norm --------")
+            ### AG Debug ###
         if hasattr(args, "actual_seq_length"):
             writer.add_scalar(
                 "seqlen/actual_seq_length", args.actual_seq_length, iteration

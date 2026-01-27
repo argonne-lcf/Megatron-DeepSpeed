@@ -151,6 +151,20 @@ class TransformerConfig(ModelParallelConfig):
     recompute_method: str = None
     recompute_num_layers: int = None
     distribute_saved_activations: bool = None
+    
+    ### Begin MuP Code ###
+    # MuP enabled
+    enable_mup: bool = False
+    mup_coord_check: bool = False
+    mup_hidden_lr_scale: float = 1.0
+    mup_hidden_weights_scale: float = 1.0
+
+    # Depth scaling enabled
+    enable_depth_scale: bool = False
+    depth_multiplier: float = 1.0
+    depth_alpha: float = 1.0
+
+    ### End MuP Code ###
 
     def __post_init__(self):
         """ Python dataclass method that is used to modify attributes after initialization.
@@ -225,4 +239,16 @@ class TransformerConfig(ModelParallelConfig):
 
         if self.output_layer_init_method is None:
             self.output_layer_init_method = scaled_init_method_normal(self.init_method_std, self.num_layers)
+
+        ### Begin MuP Code ###
+        # Check if mup-enable flag is included in args
+        if self.enable_mup is None:
+            self.enable_mup = False
+            
+        if self.mup_coord_check is None:
+            self.mup_coord_check = False
+
+        if self.enable_depth_scale is None:
+            self.enable_depth_scale = True
+        ### End MuP Code ###
 

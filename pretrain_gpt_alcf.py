@@ -450,6 +450,7 @@ def forward_step(data_iterator, model) -> tuple[torch.Tensor | None, Callable]:
 
     # Output_tensor stores the standard loss,
     # loss_func calculates the total loss.
+    
     return output_tensor, partial(loss_func, loss_mask, moe_loss, mos_loss)
 
 

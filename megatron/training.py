@@ -64,6 +64,7 @@ from megatron.utils import (
     found_kill_switch,
     unwrap_model,
     update_rotary_pos_emb,
+    mup_coord_check, ### Begin MuP Change ###
 )
 
 from megatron.profiler import (
@@ -160,6 +161,7 @@ def pretrain(
     Returns:
         model (torch.nn.Module)
     """
+    
     # Initalize and get arguments, timers, and Tensorboard writer.
     initialize_megatron(
         extra_args_provider=extra_args_provider,
@@ -963,7 +965,7 @@ def train_step(
         skipped_iter = 0
     else:
         skipped_iter = 1
-
+    
     # Empty unused memory.
     if args.empty_unused_memory_level >= 2 and accelerator is not None:
         accelerator.empty_cache()
@@ -1017,7 +1019,6 @@ def train(
     assert accelerator is not None
     setup_profiler(args, accelerator.device_name())
     
-
     if args.random_ltd:
         # random-ltd requires different randomness on each rank
         import random
@@ -1279,6 +1280,8 @@ def train(
                 )
         iteration += 1
         args.iteration = iteration
+        
+
         new_samples = (
             mpu.get_data_parallel_world_size()
             * args.micro_batch_size
@@ -1326,6 +1329,13 @@ def train(
         params_norm = None
         if args.log_params_norm:
             params_norm = calc_params_l2_norm(model)
+        
+        ### Begin MuP Code ###
+        if (args.enable_mup or args.enable_depth_scale) and args.mup_coord_check:
+            if iteration <=20:
+                mup_coord_check(model)
+        ### End MuP Code ###
+
         report_memory_flag = training_log(
             loss_dict,
             total_loss_dict,
