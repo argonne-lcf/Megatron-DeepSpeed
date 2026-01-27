@@ -5,6 +5,7 @@ In this document, we focus on three CPT approaches: a **data centric strategy**,
 - Model architecture
 - Sequence length
 - Optimizer (although it might be interesting testing how changing optimizers across stages affect training)
+- All hyperparameters besides the LR
 - Evaluation/validation tasks (needs to be fixed from the start and be consistent across stages)
 
 In all that follows, we suppose the base model was trained on dataset $D_0$ and label the subsequent datasets $D_i$, $i = 1\cdotsN$. What it means for us is that stage 1 is training with $D_0$, stage 2 is training with $D_1$, stage 3 with $D_3$ and stage 4 with $D_3$. A CPT strategy for the legacy model (agpt-7B) can be found at the end of the document.
@@ -160,23 +161,72 @@ the naive continuation strategy or the replay-based strategy is likely to suffic
 and the more aggressive LR-centric procedure may not be necessary.
 
 #### Stage 2 to stage 3 (shift to math/code datasets)
-
-
-
-
-1. You can try the naive approach but it might not work here,
-2. Try the second strategy above i.e mixing from the final dataset used in stage 1 then follow the same steps.
-3. If loss is not recovering, use the buffer. Mix from $D_0$, the current dataset $D_2$ and the buffer B. You should try weights 0.05 for D_0, 0.48 for D_1, and 0.47 for B then 0, 0.1, 0.9. Some explorations might be needed here. Do not forget to add data from D_2 to the buffer for the next training stage
-4. If all fail, do the following
- - take a checkpoint before convergence **i.e before cooldown**
- - Continue training with the base dataset with (a cosine scheduler decaying to **LR_max/100**) or (cooldown to **LR_max/100**). (I would experiment with both if resources allow)
- - Introduce the new dataset at **LR=LR_max/5**. When introducing the new dataset, you use a mixed one i.e you should not exclusively use the new dataset. This is basically the recipe here [recipe](https://arxiv.org/pdf/2407.07263v1)
+##### Naive strategy
+You can try the naive approach but it might not work here, stop early if loss does not recover.
+##### Strategy 2
+Mix in the final dataset used in Stage 1.
+1. Construct a mixed dataset containing the final dataset used in stage 2 and $D_3$.
+2. Follow the same procedure as in the previous mixing strategy. At this point, the model has seen 6T tokens and $D_3$ contains 1.5T. Here, give $D_3$ less weight.
+##### Strategy 3
+If the loss is not recovering, sample from $D_0$, $D_2$ (not the final mix after stage 1), and the buffer $B$.
+Start with the following candidate weights (some exploration may be required):
+ - **Mix A:**  
+  - `D0`: 0.33  
+  - `D2`: 0.0.33  
+  - `B`: 0.34
    
-4. **If that does not work**,take a converged checkpoint **i.e after cooling it down** and experiment with rewarming the LR to a different value and the data mixing strategy by increasing the pretraining data weight.
+- **Mix B:**  
+  - `D0`: 0.05  
+  - `D2`: 0.48  
+  - `B`: 0.47  
+
+- **Mix C:** (this is called IIDifying the dataset)  
+  - `D0`: 0.00  
+  - `D2`: 0.10  
+  - `B`: 0.90
+Notes:
+- Even a small weight on `D0` can help stabilize optimization.
+- The buffer should contain representative or difficult samples from earlier stages.
+- **Important:** Add samples from `D2` to the buffer at the end of this stage for use in the next training stage.
+
+##### Strategy 4 — Reset + controlled reintroduction (if all else fails)
+
+If all previous strategies fail, apply the following procedure:
+
+- Take a checkpoint **before convergence** (i.e., **before cooldown**).
+- Continue training on the **base dataset** using one of the following:
+  - a cosine scheduler decaying to **`LR_max / 100`**, or
+  - a cooldown to **`LR_max / 100`**.  
+  *(If resources allow, experiment with both.)*
+- Introduce the new dataset at **`LR = LR_max / 5`**.
+- When introducing the new dataset, **do not train on it exclusively**; always use a **mixed dataset**.
+
+This follows the general recipe described in  
+[https://arxiv.org/pdf/2407.07263v1](https://arxiv.org/pdf/2407.07263v1)
+
+##### Strategy 5 — Rewarm from a converged checkpoint (last resort)
+
+If Strategy 4 does not work:
+
+- Take a **converged checkpoint** (i.e., **after cooldown**).
+- Experiment with:
+  - rewarming the learning rate to a different max value, and
+  - adjusting the data-mixing strategy by **increasing the weight of pretraining data**.
+
 
 #### Stage 3 to stage 4 (shift to reasoning tracex)
-Try the same strategies as above. My guess here is you will (need the buffer and balance the weights across the 3 data sources) OR (need to do step 3)
+At this point, we only have ~6% of training left and one should start the final decay.
+1. Try
+**Mix A:**  
+  - `D0`: 0.33  
+  - `D_3`: 0.33  
+  - `B`: 0.34
 
+**Mix B:**  
+  - `D0`: 0.5  
+  - `D_3`: 0.25  
+  - `B`: 0.25
+2. Cooldown/decay the LR to convergence
 
 
 ## Legacy agpt-7b checkpoints
@@ -202,7 +252,6 @@ SAVE=path/to/where/you/want/to/save/checkpoints
  
      
 
-## Worth exploring
-Follow and implement the [recipe](https://arxiv.org/pdf/2407.07263v1) where the new dataset is incrementally introduced. This might be advantageous for example when the new dataset is QAs as opposed to pure text. Here:
-1. If base model LR was decayed to 0, one might need to rewarm it before following the recipe
-2. Constant/infinite LR schedule was used, one might experiment with the recipe as is.
+## Things to keep in mind
+- If new dataset is considerably smaller that previous ones, one need to put more weight on previous data.
+- One can reduce/increase the batch size by a factor k but need to reduce/increase LR by a factor $\sqrt(k)$ or $k$.
