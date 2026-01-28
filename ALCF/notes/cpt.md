@@ -48,10 +48,11 @@ No buffer data is used at this stage, $\alpha_B=0$.
 - Start conservatively:
   - $\alpha_0 = 0.05$–$0.10$
   - $\alpha_D = 1 - \alpha_0$
-
 > In practice, $\alpha_0 = 0.05$ is often a safe starting point.
 > Increase up to 25–30% only if forgetting is observed.
 ![stage 1 to 2](./assets/cpt_images/strategy_cpt_stage1tostage2-1.png)
+
+
 **Dataset construction**
    Use [mix_datasets.py](https://github.com/zhenghh04/blendcorpus/blob/main/utils/mix_datasets.py) function to build your cpt dataset. For example, to mix the lucid papers with weight 0.9 and the dolma dataset with weight 0.1, you do
  ```bash
