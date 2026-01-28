@@ -8,8 +8,7 @@ In this document, we focus on three CPT approaches: a **data centric strategy**,
 - All hyperparameters besides the LR
 - Evaluation/validation tasks (needs to be fixed from the start and be consistent across stages)
 
-In all that follows, we suppose the base model was trained on dataset $D_0$ and label the subsequent datasets $D_i$, $i = 1\cdotsN$. What it means for us is that stage 1 is training with $D_0$, stage 2 is training with $D_1$, stage 3 with $D_3$ and stage 4 with $D_3$. We call the training data used to do CPT at stage i $D^{CPT}_{i}$ A CPT strategy for the legacy model (agpt-7B) can be found at the end of the document.
-## Recommended approach
+In all that follows, we suppose the base model was trained on dataset $D_0$ and label the subsequent datasets $D_i$, $i = 1 \cdots N$. What it means for us is that stage 1 is training with $D_0$, stage 2 is training with $D_1$, stage 3 with $D_3$ and stage 4 with $D_3$. We call the training data used to do CPT at stage i, $D^{CPT}_{i}$ A CPT strategy for the legacy model (agpt-7B) can be found at the end of the document.
 ## Recommended CPT strategies by stage
 
 | CPT Stages | Distribution shift | Primary strategy | Fallbacks | Notes |
@@ -26,10 +25,10 @@ For these runs, we have 4 stages of training with the first stage producing the 
 
 | Stage | Dataset Symbol | Size | Source / Path | Notes |
 |------:|----------------|----------------------|---------------|-------|
-| 0 | D₀ |  4T | Olmo-mix | Stage 1 (Pretraining) |
-| 1 | D₁ | 2T | Dolmino and fineweb Edu | Stage 2 |
-| 2 | D₂ | 1.5T |Open Alex, and proof pile II | Stage 3 |
-| 3 | D₃ | 0.5T |OpenMathInstruct, CoT Collection, AQUA-RAT, Llama-Nemotron Dataset, GSM8K, OpenHermes  | Stage 4 |
+| 1 | D₀ |  4T | Olmo-mix | Pretraining |
+| 2 | D₁ | 2T | Dolmino and fineweb Edu | High quality focused data |
+| 3 | D₂ | 1.5T |Open Alex, and proof pile II | Math, code, science focused |
+| 4 | D₃ | 0.5T |OpenMathInstruct, CoT Collection, AQUA-RAT, Llama-Nemotron Dataset, GSM8K, OpenHermes  | reasoning traces |
 
 ## Data centric strategy ##
 The main thing to figure out here is the data mixing strategy. To avoid catastrophic forgetting, we need to sample from the pretraining dataset $D_0$, the current one $D_i$, and we also might need to sample from a buffer $B$ that contains data from the previous stages $D_1,\cdots,D_{i-1}$. Which means we need sampling weights $\alpha_0$ for the pretraining data, $\alpha_D$ for the current dataset, and $\alpha_B$ for the buffer dataset with $\alpha_0 + \alpha_D + \alpha_D = 1$.
