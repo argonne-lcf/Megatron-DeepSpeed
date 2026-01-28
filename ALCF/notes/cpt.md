@@ -9,6 +9,16 @@ In this document, we focus on three CPT approaches: a **data centric strategy**,
 - Evaluation/validation tasks (needs to be fixed from the start and be consistent across stages)
 
 In all that follows, we suppose the base model was trained on dataset $D_0$ and label the subsequent datasets $D_i$, $i = 1\cdotsN$. What it means for us is that stage 1 is training with $D_0$, stage 2 is training with $D_1$, stage 3 with $D_3$ and stage 4 with $D_3$. We call the training data used to do CPT at stage i $D^{CPT}_{i}$ A CPT strategy for the legacy model (agpt-7B) can be found at the end of the document.
+## Recommended approach
+## Recommended CPT strategies by stage
+
+| CPT Stages | Distribution shift | Primary strategy | Fallbacks | Notes |
+|------|--------------------|------------------|-------------|-------|
+| Stage 1 → 2 | Weak | Naive CPT | 5% Replay: $D^{CPT}_{2} = 0.05D_0 + 0.95D_1$| Add $D_1$ to buffer $B$ |
+| Stage 2 → 3 | Strong | 5-30% replay of $D^{CPT}_{2}$ and monitor loss  | Use buffer: 0.33$D_0$ + 0.33$D_2$ + 0.34$B$| Add $D_2$ to buffer $B$, you might need to switch to LR centric strategy, see below |
+| Stage 3 → 4 | Strong | Cooldown with mix  0.33$D_0$ + 0.33$D_3$ + 0.34$B$ | Continue decay if started previously | Play with decay function,stages, and final LR value |
+
+
 
 ## AuroraGPT V1 (Stages 1 to 4)
 ![different stages](./assets/cpt_images/stages_training_initial-1.png)
