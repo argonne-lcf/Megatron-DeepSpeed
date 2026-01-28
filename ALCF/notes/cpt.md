@@ -16,7 +16,7 @@ In all that follows, we suppose the base model was trained on dataset $D_0$ and 
 |------|--------------------|------------------|-------------|-------|
 | Stage 1 → 2 | Weak | Naive CPT | 5% Replay: $D^{CPT}_{2} = 0.05D_0 + 0.95D_1$| Add $D_1$ to buffer $B$ |
 | Stage 2 → 3 | Strong | 5-30% replay of $D^{CPT}_{2}$ and monitor loss  | Use buffer: 0.33$D_0$ + 0.33$D_2$ + 0.34$B$| Add $D_2$ to buffer $B$, you might need to switch to LR centric strategy, see below |
-| Stage 3 → 4 | Strong | Cooldown with mix  $0.33D_0 + 0.33D_3 + 0.34B$ | Continue decay if started previously | Play with decay function,stages, and final LR value |
+| Stage 3 → 4 | Strong | Cooldown with mix  $0.33D_0 + 0.33D_3 + 0.34B$ |  Cooldown with mix  $0.05D_0 + 0.47D_3 + 0.48B$  | You will need to continue decay if used in previous stage. Play with decay function,stages, and final LR value |
 
 
 
