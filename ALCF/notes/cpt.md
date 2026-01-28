@@ -38,7 +38,13 @@ A CPT strategy for the legacy model (**agpt-7B**) is provided at the end of this
 
 ## AuroraGPT V1 (Stages 1 to 4)
 ![different stages](./assets/cpt_images/stages_training_initial-1.png)
-For these runs, we have 4 stages of training with the first stage producing the pretrained or base model. A key element here is the learning rate scheduler that we are using. In fact, as opposed to the legacy model, we used an infinite scheduler where the LR was warmed up to $LR_{max}$ then kept constant before cooling it down to convergence. The main advantage of this is to avoid rewarming the LR when doing CPT which can lead to instabilities. Therefore, we mostly adopt a data centric strategy here but might resort to playing with the LRs if needed. The dataset $D_0$ for pretraining is Olmo-mix and has 4 Trillion tokens, then $D_1$ has 2 Trillion tokens from Dolmino and fineweb Edu meaning the data distribution between these two stages is weak. We then have $D_2$ for stage 3 that has 1.5 trillion tokens from math, code, ans science papers. Finally, we have $D_3$ stage 4 made of 0.5 trillion tokens from reasoning traces. 
+For these runs, we consider **four stages of training**, with the first stage producing the pretrained (base) model.
+
+A key component of our setup is the **learning-rate scheduler**. Unlike the legacy model, we use an **infinite scheduler**, in which the learning rate is warmed up to $LR_{\max}$, held constant, and then cooled down to convergence. The main advantage of this approach is that it **avoids rewarming the learning rate during CPT**, which can otherwise introduce instabilities.
+
+As a result, we primarily adopt a **data-centric strategy** throughout these stages, resorting to learning-rate adjustments only when necessary.
+
+The dataset $D_0$ for pretraining is Olmo-mix and has 4 Trillion tokens, then $D_1$ has 2 Trillion tokens from Dolmino and fineweb Edu meaning the data distribution between these two stages is weak. We then have $D_2$ for stage 3 that has 1.5 trillion tokens from math, code, ans science papers. Finally, we have $D_3$ stage 4 made of 0.5 trillion tokens from reasoning traces. 
 
 | Stage | Dataset Symbol | Size | Source / Path | Notes |
 |------:|----------------|----------------------|---------------|-------|
