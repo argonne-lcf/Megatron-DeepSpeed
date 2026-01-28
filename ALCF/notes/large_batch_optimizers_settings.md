@@ -44,12 +44,14 @@ To add a custom scheduler, you have to modify the following files:
 
 ## Hyperparameter tuning
 #### Init variance
-Weight initialization is key to training LLMs,and to avoid spikes in losses. Here, we initialize the wights following this [paper](https://arxiv.org/pdf/2312.16903). The default variance value at initialization is 0.02. To add custom variances, one can use `--init-method-std, `--adjust-word-embedding-init`, and `--word-embedding-init-std`. For our runs, we do
+Weight initialization is key to training LLMs,and to avoid spikes in losses. Here, we initialize the weights following this [paper](https://arxiv.org/pdf/2312.16903). The default variance value at initialization is 0.02. To add custom variances, one can use `--init-method-std, `--adjust-word-embedding-init`, and `--word-embedding-init-std`. For our runs, we do
 ```bash
 DATA_FILE_LIST=./ALCF/data-lists/aurora/books.txt TRAIN_TOKENS=$((22*10**9)) GRAD_ACC_STEPS=16 LR_DECAY_STYLE=constant LR=0.0002 LR_WARMUP_FRACTION=0.01 OPT=muon bash train_alcf.sh --lr_constant_plus_cooldown --init-method-std ${sqrt(2/5d)}  --adjust-word-embedding-init --word-embedding-init-std 0.632
 ```
-where `d=hidden size`.
-
+where `d=hidden size`. In general, the initialization should be 
+```bash
+--init-method-std sqrt{ 2 / (5 * d) }  --adjust-word-embedding-init --word-embedding-init-std sqrt{ 2 / 5 }
+```
 ### Learning rate
 For the learning rate, we implemented the learning rate finder routine [here](https://sgugger.github.io/how-do-you-find-a-good-learning-rate.html) and [here](https://arxiv.org/pdf/1506.01186). This is activated with the `--lr-finder` and run for `TRAIN_ITERS` steps. For example, for a 1000 steps:
 ```bash
