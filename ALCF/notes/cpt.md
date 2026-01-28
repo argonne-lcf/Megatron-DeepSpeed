@@ -172,7 +172,7 @@ At this point, we only have ~6% of training left and one should start the final 
   - `D0`: 0.33  
   - `D_3`: 0.33  
   - `B`: 0.34
-  - 
+    
  **Mix B:**  
   - `D0`: 0.5  
   - `D_3`: 0.25  
