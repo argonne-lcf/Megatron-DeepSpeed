@@ -16,10 +16,10 @@ For these runs, we have 4 stages of training with the first stage producing the 
 
 | Stage | Dataset Symbol | Size | Source / Path | Notes |
 |------:|----------------|----------------------|---------------|-------|
-| 0 | D₀ |  4T | Olmo-mix | Pretraining dataset |
-| 1 | D₁ | 2T | Dolmino and fineweb Edu | CPT stage 1 |
-| 2 | D₂ | 1.5T |Open Alex, and proof pile II | CPT stage 2 |
-| 3 | D₃ | 0.5T |OpenMathInstruct, CoT Collection, AQUA-RAT, Llama-Nemotron Dataset, GSM8K, OpenHermes  | CPT stage 3 |
+| 0 | D₀ |  4T | Olmo-mix | Stage 1 (Pretraining) |
+| 1 | D₁ | 2T | Dolmino and fineweb Edu | Stage 2 |
+| 2 | D₂ | 1.5T |Open Alex, and proof pile II | Stage 3 |
+| 3 | D₃ | 0.5T |OpenMathInstruct, CoT Collection, AQUA-RAT, Llama-Nemotron Dataset, GSM8K, OpenHermes  | Stage 4 |
 
 ## Data centric strategy ##
 The main thing to figure out here is the data mixing strategy. To avoid catastrophic forgetting, we need to sample from the pretraining dataset $D_0$, the current one $D_i$, and we also might need to sample from a buffer $B$ that contains data from the previous stages $D_1,\cdots,D_{i-1}$. Which means we need sampling weights $\alpha_0$ for the pretraining data, $\alpha_D$ for the current dataset, and $\alpha_B$ for the buffer dataset with $\alpha_0 + \alpha_D + \alpha_D = 1$.
