@@ -141,7 +141,7 @@ if __name__ == '__main__':
 3. **Run CPT**: Load your checkpoint and run CPT with the --finetube flag.
 Note that you might need to convert your checkpoints following [these instructions](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/ALCF/notes/universal_checkpoint_bug.md) to a universal checkpoint.
 
-At the end of this stage, we have ***$D^{CPT}_1$***.
+At the end of this stage, we have $D^{CPT}_1$.
 
 
 #### Stage 2 to stage 3 (shift to math/code datasets)
@@ -198,7 +198,7 @@ If Strategy 4 does not work:
   - rewarming the learning rate to a different max value, and
   - adjusting the data-mixing strategy by **increasing the weight of pretraining data**.
 
-At the end of this stage, we have ***$D^{CPT}_2$***.
+At the end of this stage, we have $D^{CPT}_2$.
 #### Stage 3 to stage 4 (shift to reasoning tracex)
 ![stage 3 to 4](./assets/cpt_images/strategy_cpt_stage3tostage4-1.png)
 At this point, we only have ~6% of training left and one should start the final decay.
