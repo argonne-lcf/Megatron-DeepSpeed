@@ -54,10 +54,20 @@ The dataset $D_0$ for pretraining is Olmo-mix and has 4 Trillion tokens, then $D
 | 4 | D₃ | 0.5T |OpenMathInstruct, CoT Collection, AQUA-RAT, Llama-Nemotron Dataset, GSM8K, OpenHermes  | reasoning traces |
 
 ## Data centric strategy ##
-The main thing to figure out here is the data mixing strategy. To avoid catastrophic forgetting, we need to sample from the pretraining dataset $D_0$, the current one $D_i$, and we also might need to sample from a buffer $B$ that contains data from the previous stages $D_1,\cdots,D_{i-1}$. Which means we need sampling weights $\alpha_0$ for the pretraining data, $\alpha_D$ for the current dataset, and $\alpha_B$ for the buffer dataset with $\alpha_0 + \alpha_D + \alpha_D = 1$.
+The main thing to determine is the **data-mixing strategy**. To avoid catastrophic forgetting, we sample from the pretraining dataset $D_0$, the current dataset $D_i$, and, when necessary, from a buffer $B$ containing data from previous stages $D_1, \ldots, D_{i-1}$.
+
+This requires defining sampling weights:
+- $\alpha_0$ for the pretraining data $D_0$,
+- $\alpha_D$ for the current dataset $D_i$,
+- $\alpha_B$ for the buffer $B$,
+
+with the constraint
+\[
+\alpha_0 + \alpha_D + \alpha_B = 1.
+\]
 See the figure below from this [paper](https://arxiv.org/pdf/2408.14471)
 ![data mixing](./assets/cpt_images/CPT_data_mixing.png)
-Note that you add data to the buffer B after the current step to be used for the next one i.e at sampling time, B only contains data from previous stages.
+Note that data are added to the buffer $B$ **after** the current stage completes and are used only in subsequent stages. That is, at sampling time during stage $i$, the buffer $B$ contains data exclusively from **previous stages**.
 
 #### Stage 1 to stage 2 (weak distribution shift)
 ##### Strategy 1: No replay
