@@ -1,4 +1,4 @@
-# Megatron-DeepSpeed, optimizers, hyperparameters and CPT
+# Megatron-DeepSpeed, optimizers, hyperparameters
 
 Single command to test and run Megatron-DeepSpeed:
 
@@ -55,7 +55,7 @@ For the learning rate, we implemented the learning rate finder routine [here](ht
 ```bash
 DATA_FILE_LIST=./ALCF/data-lists/aurora/books.txt TRAIN_ITERS=1000 GRAD_ACC_STEPS=16 LR_DECAY_STYLE=constant LR=0.0002 LR_WARMUP_FRACTION=0.01 OPT=muon bash train_alcf.sh --lr_constant_plus_cooldown --init-method-std ${sqrt(2/5d)}  --adjust-word-embedding-init --word-embedding-init-std 0.632 --lr-finder
 ```
-This approach allows to find the largest LR one can train with without the model divergence. Training with large LR is crucial for infinite schedulers as well for large batch training. We increase the LR following a power law at each step and monitor the LR curve in particular the decaying phase and the blow up phase. To tune the LR, you identify the point where the LR blows up and divide that LR value by 10. You can also pick the LR corresponding to the steepest descent phase.
+This approach allows to find the largest LR one can train with without the model divergence. Training with large LR is crucial for infinite schedulers as well for large batch training. We increase the LR following a power law at each step and monitor the LR curve in particular the decaying phase and the blow up phase. To tune the LR, you identify the point where the LR start increasing and divide that LR value by 10. You can also pick the LR corresponding to the steepest descent phase.
 ![lr_finder](./assets/lb_optimizers/lr_finder_example.png)
 ### Maximal Update Parametrization/Complete Parametrization
-We have MuP and CompleteP incorporated in AuroraGPT. Will add details about activating them soon
+We have MuP and CompleteP incorporated in AuroraGPT in the `lb-optimizers` branch.
