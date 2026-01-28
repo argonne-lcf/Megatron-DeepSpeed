@@ -1,1 +1,1 @@
-
+Images for the large_batch_optimizers_settings document
