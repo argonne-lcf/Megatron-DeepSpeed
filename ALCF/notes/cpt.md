@@ -37,15 +37,14 @@ Naively continue training with $D_1$, no replay data.
 This may be sufficient under weak distribution shift but there is potential risks of forgetting
 
 ##### Strategy 2: Replay from pretraining dataset
-`Important: USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN`. Then,
-###### Replay the pretraining dataset
+`Important: USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN`. Then,replay the pretraining dataset
  We mix data from:
 - the pretraining dataset $D_0$,
 - the current CPT dataset $D_1$.
 
 No buffer data is used at this stage, $\alpha_B=0$.
 
-Initial mixing weight
+###### Mixing weights
 - Start conservatively:
   - $\alpha_0 = 0.05$–$0.10$
   - $\alpha_D = 1 - \alpha_0$
