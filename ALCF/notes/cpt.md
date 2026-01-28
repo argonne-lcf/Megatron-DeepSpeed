@@ -1,14 +1,31 @@
 # CPT
-This document serves as a strategy cookbook for our current runs. 
-CPT is the process of continually pre-training a model on new data. The goal of CPT is to continue training on new data while retaining previously learned knowledge and avoiding forgetting. When compared to finetuning, the goal of CPT is not to improve the model knowledge and performance on a given downstream task but to retain and improve current knowledge as more data are being streamed while avoiding catastrophic forgetting.
-In this document, we focus on three CPT approaches: a **data centric strategy**, an **optimization (LR) strategy**. This means that the following are **fixed** across all runs:
-- Model architecture
-- Sequence length
-- Optimizer (although it might be interesting testing how changing optimizers across stages affect training)
-- All hyperparameters besides the LR
-- Evaluation/validation tasks (needs to be fixed from the start and be consistent across stages)
+This document serves as a **strategy cookbook** for our current runs.
 
-In all that follows, we suppose the base model was trained on dataset $D_0$ and label the subsequent datasets $D_i$, $i = 1 \cdots N$. What it means for us is that stage 1 is training with $D_0$, stage 2 is training with $D_1$, stage 3 with $D_3$ and stage 4 with $D_3$. We call the training data used to do CPT at stage i, $D^{CPT}_{i}$ A CPT strategy for the legacy model (agpt-7B) can be found at the end of the document.
+Continual pre-training (CPT) is the process of training a model on new data over time while retaining previously learned knowledge and avoiding forgetting. Unlike fine-tuning, the goal of CPT is **not** to optimize performance on a specific downstream task. Instead, CPT aims to **retain and incrementally improve general model knowledge** as new data are streamed, while mitigating catastrophic forgetting.
+
+In this document, we focus on two CPT approaches: a **data-centric strategy** and an **optimization (learning-rate) strategy**. As a result, the following components are **held fixed** across all runs:
+
+- Model architecture  
+- Sequence length  
+- Optimizer  
+  *(although it may be interesting to explore how changing optimizers across stages affects training)*  
+- All hyperparameters except the learning rate  
+- Evaluation and validation tasks  
+  *(these must be fixed from the start and remain consistent across stages)*
+
+
+In what follows, we assume that the base model was trained on dataset $D_0$, and we denote subsequent datasets by $D_i$, with $i = 1, \ldots, N$.
+
+Under this convention:
+- **Stage 1** corresponds to training on $D_0$,
+- **Stage 2** corresponds to training on $D_1$,
+- **Stage 3** corresponds to training on $D_2$,
+- **Stage 4** corresponds to training on $D_3$,
+
+We denote by $D^{CPT}_i$ the **training data actually used for CPT at stage $i$** (which may be a mixture of multiple datasets, depending on the strategy).
+
+A CPT strategy for the legacy model (**agpt-7B**) is provided at the end of this document.
+
 ## Recommended CPT strategies by stage
 
 | CPT Stages | Distribution shift | Primary strategy | Fallbacks | Notes |
