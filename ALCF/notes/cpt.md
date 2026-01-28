@@ -29,7 +29,7 @@ Note that you add data to the buffer B after the current step to be used for the
 
 #### Stage 1 to stage 2 (weak distribution shift)
 ##### Strategy 1: No replay
-****Important: USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN****
+`Important: USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN`
 Just naively continue training with $D_1$, no replay data. 
 - Continue training using only the current dataset $D_1$
 - No replay from $D_0$ or buffer data
