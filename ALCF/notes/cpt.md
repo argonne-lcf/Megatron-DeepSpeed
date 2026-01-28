@@ -1,7 +1,7 @@
 # CPT
 This document serves as a strategy cookbook for our current runs. 
 CPT is the process of continually pre-training a model on new data. The goal of CPT is to continue training on new data while retaining previously learned knowledge and avoiding forgetting. When compared to finetuning, the goal of CPT is not to improve the model knowledge and performance on a given downstream task but to retain and improve current knowledge as more data are being streamed while avoiding catastrophic forgetting.
-In this document, we focus on three CPT approaches: a **data centric strategy**, an **optimization (LR) strategy**, and a third one mixing both. This means that the following are **fixed** across all runs:
+In this document, we focus on three CPT approaches: a **data centric strategy**, an **optimization (LR) strategy**. This means that the following are **fixed** across all runs:
 - Model architecture
 - Sequence length
 - Optimizer (although it might be interesting testing how changing optimizers across stages affect training)
