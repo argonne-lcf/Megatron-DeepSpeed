@@ -1,9 +1,9 @@
 # CPT
-This document serves as a **strategy cookbook** for our current runs.
+This document serves as a **strategy cookbook** for doing CPT for auroraGPT V1.
 
 Continual pre-training (CPT) is the process of training a model on new data over time while retaining previously learned knowledge and avoiding forgetting. Unlike fine-tuning, the goal of CPT is **not** to optimize performance on a specific downstream task. Instead, CPT aims to **retain and incrementally improve general model knowledge** as new data are streamed, while mitigating catastrophic forgetting.
 
-In this document, we focus on two CPT approaches: a **data-centric strategy** and an **optimization (learning-rate) strategy**. As a result, the following components are **held fixed** across all runs:
+In this document, we focus on two CPT approaches: a **data-centric strategy** and an **optimization (learning-rate) strategy**. As a result, the following components are **fixed** across all runs:
 
 - Model architecture  
 - Sequence length  
