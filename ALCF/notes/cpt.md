@@ -165,12 +165,14 @@ At the end of this stage, we have $D^{CPT}_2$.
 #### Stage 3 to stage 4 (shift to reasoning tracex)
 ![stage 3 to 4](./assets/cpt_images/strategy_cpt_stage3tostage4-1.png)
 At this point, we only have ~6% of training left and one should start the final decay.
+
 ***If we didn't use Strategy 4 above:***
 1. Try
  **Mix A:**  
   - `D0`: 0.33  
   - `D_3`: 0.33  
   - `B`: 0.34
+  - 
  **Mix B:**  
   - `D0`: 0.5  
   - `D_3`: 0.25  
