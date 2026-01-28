@@ -29,22 +29,23 @@ Note that you add data to the buffer B after the current step to be used for the
 
 #### Stage 1 to stage 2 (weak distribution shift)
 ##### Strategy 1: No replay
-`Important: USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN`
-Just naively continue training with $D_1$, no replay data. 
+`Important: USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN`.
+
+Naively continue training with $D_1$, no replay data. 
 - Continue training using only the current dataset $D_1$
 - No replay from $D_0$ or buffer data
 This may be sufficient under weak distribution shift but there is potential risks of forgetting
 
 ##### Strategy 2: Replay from pretraining dataset
- ****Important: USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN****. Then,
- 1. *****Replay the pretraining dataset*****
+`Important: USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN`. Then,
+###### Replay the pretraining dataset
  We mix data from:
 - the pretraining dataset $D_0$,
 - the current CPT dataset $D_1$.
 
 No buffer data is used at this stage, $\alpha_B=0$.
 
-*****Initial mixing weights****
+Initial mixing weight
 - Start conservatively:
   - $\alpha_0 = 0.05$–$0.10$
   - $\alpha_D = 1 - \alpha_0$
