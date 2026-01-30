@@ -1182,40 +1182,6 @@ def train(
             if smoothed_loss < best_loss or batch_num == 1:
                 best_loss = smoothed_loss
 
-          #  explode = (batch_num > 1 and smoothed_loss > 4 * best_loss)
-    
-
-           # if explode:
-           #     if mpu.get_data_parallel_rank() == 0:
-           #         log.info(f"Loss exploding at lr={curr_lr:.8f}, stopping LR finder")
-           #     break
-
-            ## Record the best loss (use the same global smoothed_loss)
-            #if smoothed_loss < best_loss or batch_num == 1:
-            #    best_loss = smoothed_loss
-
-            # --- GLOBALIZE the "loss exploding" decision (any rank => all ranks) ---
-            #explode_local = (batch_num > 1 and smoothed_loss > 4 * best_loss)
-            #print(f"Rank {mpu.get_data_parallel_rank()}: explode_local={explode_local}")
-            #if mpu.get_data_parallel_rank() == 0:
-                
-            #    print(f"Iter {i}: batch_num={batch_num}, smoothed_loss={smoothed_loss:.8f}, best_loss={best_loss:.8f}, ratio={smoothed_loss/best_loss:.2f}")
-            #if tdist.is_available() and tdist.is_initialized():
-            #    _exp = torch.tensor([1 if explode_local else 0], device=dev)
-            #    tdist.all_reduce(_exp, op=tdist.ReduceOp.MAX, group=dp_group)
-            #    explode = bool(_exp.item())
-            #else:
-            #    explode = explode_local
-
-            
-
-            #if explode:
-            #    if mpu.get_data_parallel_rank() == 0:
-            #        log.info(f"Loss exploding at lr={curr_lr:.8f}, stopping LR finder")
-                # Keep everyone in lockstep before breaking
-            #    if tdist.is_available() and tdist.is_initialized():
-            #        tdist.barrier(group=dp_group)
-            #    break
 
             # Record values for plotting
             lr_finder_losses.append(smoothed_loss)
