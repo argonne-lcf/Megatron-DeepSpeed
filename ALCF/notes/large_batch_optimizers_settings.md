@@ -1,5 +1,5 @@
 # Megatron-DeepSpeed, optimizers, hyperparameters
-**Important** For large batch training with infinite schedulers, It is crucial to tune the learning rate as these schedulers benefit from larger learning rate values. See below for the `lr_finder` routine implemented in MDS to do so.
+`**Important** For large batch training with infinite schedulers, It is crucial to tune the learning rate as these schedulers benefit from larger learning rate values. See below for the `lr_finder` routine implemented in MDS to do so.`
 
 Single command to test and run Megatron-DeepSpeed:
 
