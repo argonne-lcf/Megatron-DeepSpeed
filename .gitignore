@@ -18,6 +18,8 @@ ALCF/OUTPUTS/*
 *tmp*
 *core.*
 *old*
+!tools/cooldown_generator/
+!tools/cooldown_generator/**
 *.bak
 **index-cache**
 **pbslogs**
