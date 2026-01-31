@@ -125,8 +125,8 @@ class Muon(torch.optim.Optimizer):
         """
         A, B = param_shape[:2]
         # We adjust the learning rate based on the size of the parameter matrix
-        #adjusted_ratio = max(1.0, float(A) / float(B)) ** 0.5
-        adjusted_ratio = 0.2 * math.sqrt(max(A, B))
+        #adjusted_ratio = max(1.0, float(A) / float(B)) ** 0.5 #Muon implementation that enables MuP, Uncomment to have MuP enabled for Muon
+        adjusted_ratio = 0.2 * math.sqrt(max(A, B)) #comment if enabling above line is uncommented
         adjusted_lr = lr * adjusted_ratio
         return adjusted_lr
 
