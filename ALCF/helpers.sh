@@ -96,7 +96,7 @@ setup() {
 	# # 4. Use these (^) to build our launch command
 	# ezpz_setup || exit
 	##########################################################################
-	install_dependencies
+	# install_dependencies
 	# Set command line arguments to pass to `"${EXEC}"`
 	setParams || exit
 	# Create `deepspeed_config.json` from runtime params from ^
@@ -361,7 +361,7 @@ setupLauncher() {
 		make_ds_hostfile || exit
 		export LAUNCHER="deepspeed --hostfile $hfds --launcher MPICH ${EXEC}"
 	else
-    LAUNCHER="ezpz-launch $(which python3) ${EXEC}"
+    LAUNCHER="ezpz launch $(which python3) ${EXEC}"
 		# source <(curl -L https://bit.ly/ezpz-utils) && ezpz_setup_job
 		# echo "ezpz_launch: $(which ezpz_launch)"
 		# export -f ezpz_launch
