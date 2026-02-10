@@ -623,7 +623,7 @@ if __name__ == "__main__":
 
     model = main()
     dist.log_summary()
-    if wandb.run is not None:
+    if wandb is not None and wandb.run is not None:
         print(f"wandb.run.name: {wandb.run.name}")
         print(f"wandb.run.url: {wandb.run.url}")
         wandb.finish()

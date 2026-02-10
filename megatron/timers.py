@@ -5,11 +5,14 @@
 from abc import ABC
 from abc import abstractmethod
 import time
+import ezpz
 
 import torch
 from deepspeed.accelerator import get_accelerator
 from tensorboard.summary import Writer
 from packaging import version
+
+logger = ezpz.get_logger(__name__)
 
 try:
     import wandb
@@ -309,7 +312,7 @@ class Timers:
         if rank is None:
             rank = torch.distributed.get_world_size() - 1
         if rank == torch.distributed.get_rank() and output_string is not None:
-            print(output_string, flush=True)
+            logger.info(output_string) #, flush=True)
 
     def write(
         self,

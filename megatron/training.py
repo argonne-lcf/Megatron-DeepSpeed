@@ -9,6 +9,7 @@ import time
 _TRAIN_START_TIME = time.time()
 
 import ezpz
+import ezpz.dist
 
 from collections import OrderedDict
 from datetime import datetime
@@ -25,7 +26,6 @@ from deepspeed.compression.compress import init_compression, redundancy_clean
 from deepspeed.runtime.data_pipeline.data_routing.helper import (
     convert_to_random_ltd,
 )
-import ezpz as ez
 import torch
 import torch.distributed as tdist
 from torch.nn.parallel.distributed import DistributedDataParallel as torchDDP
@@ -82,10 +82,10 @@ dlp = Profile("TRAINING")
 
 # from deepspeed import comm as dist
 
-RANK: int = ez.get_rank()
-WORLD_SIZE: int = ez.get_world_size()
-# DEVICE_TYPE: str = ez.get_torch_device()
-DEVICE_TYPE: str = ez.dist.get_torch_device_type()
+RANK: int = ezpz.get_rank()
+WORLD_SIZE: int = ezpz.get_world_size()
+# DEVICE_TYPE: str = ezpz.get_torch_device()
+DEVICE_TYPE: str = ezpz.get_torch_device_type()
 DEVICE: torch.device = torch.device(DEVICE_TYPE)
 
 log: logging.Logger = logging.getLogger(__name__)
@@ -208,9 +208,9 @@ def pretrain(
         extra_trace_path = ""
     os.makedirs(args.trace_dir, exist_ok=True)
     PerfTrace.initialize_log(
-        f"{args.trace_dir}/trace-{ez.get_rank()}-of-{ez.get_world_size()}.pfw",
+        f"{args.trace_dir}/trace-{ezpz.get_rank()}-of-{ezpz.get_world_size()}.pfw",
         f"{args.data_cache_path}:{extra_trace_path}:{args.data_path}:{args.save}:{args.load}",
-        process_id=ez.get_rank(),
+        process_id=ezpz.get_rank(),
     )
     timers = get_timers()
     assert args is not None
@@ -409,7 +409,7 @@ def setup_teacher_model(args, model_provider):
 
 
 @dlp.log
-@ez.dist.timeitlogit(rank=RANK)
+@ezpz.dist.timeitlogit(rank=RANK)
 def get_model(
     model_provider_func, model_type=ModelType.encoder_or_decoder, wrap_with_ddp=True
 ):
@@ -425,9 +425,9 @@ def get_model(
         mpu.get_pipeline_model_parallel_world_size() > 1
         and args.virtual_pipeline_model_parallel_size is not None
     ):
-        assert (
-            model_type != ModelType.encoder_and_decoder
-        ), "Interleaved schedule not supported for model with both encoder and decoder"
+        assert model_type != ModelType.encoder_and_decoder, (
+            "Interleaved schedule not supported for model with both encoder and decoder"
+        )
         model = []
         for i in range(args.virtual_pipeline_model_parallel_size):
             mpu.set_virtual_pipeline_model_parallel_rank(i)
@@ -446,9 +446,9 @@ def get_model(
         add_decoder = True
         if model_type == ModelType.encoder_and_decoder:
             if mpu.get_pipeline_model_parallel_world_size() > 1:
-                assert (
-                    args.pipeline_model_parallel_split_rank is not None
-                ), "Split rank needs to be specified for model with both encoder and decoder"
+                assert args.pipeline_model_parallel_split_rank is not None, (
+                    "Split rank needs to be specified for model with both encoder and decoder"
+                )
                 rank = mpu.get_pipeline_model_parallel_rank()
                 split_rank = args.pipeline_model_parallel_split_rank
                 world_size = mpu.get_pipeline_model_parallel_world_size()
@@ -474,9 +474,9 @@ def get_model(
     # Disallow training and inference with Transformer Engine
     # for non-GPT models
     args.allow_transformer_engine = all([type(m) == GPTModel for m in model])
-    assert (
-        args.allow_transformer_engine or args.transformer_impl == "local"
-    ), "Transformer Engine is only approved for GPT models"
+    assert args.allow_transformer_engine or args.transformer_impl == "local", (
+        "Transformer Engine is only approved for GPT models"
+    )
 
     # Set tensor model parallel attributes if not set.
     # Only parameters that are already tensor model parallel have these
@@ -558,7 +558,7 @@ def get_model(
 
 
 @dlp.log
-@ez.dist.timeitlogit(rank=RANK)
+@ezpz.dist.timeitlogit(rank=RANK)
 def get_optimizer_param_scheduler(optimizer):
     """Build the learning rate scheduler."""
     args = get_args()
@@ -580,7 +580,9 @@ def get_optimizer_param_scheduler(optimizer):
         else:
             lr_constant_steps = args.lr_constant_iters * args.global_batch_size
         if args.lr_constant_plus_cooldown:
-            lr_constant_plus_cooldown_steps = args.lr_constant_plus_cooldown_frac * lr_decay_steps
+            lr_constant_plus_cooldown_steps = (
+                args.lr_constant_plus_cooldown_frac * lr_decay_steps
+            )
         else:
             lr_constant_plus_cooldown_steps = 0
         lr_cooldown_steps = args.lr_cooldown_fraction * lr_decay_steps
@@ -603,7 +605,9 @@ def get_optimizer_param_scheduler(optimizer):
         else:
             lr_constant_steps = args.lr_constant_samples
         if args.lr_constant_plus_cooldown:
-            lr_constant_plus_cooldown_steps = args.lr_constant_plus_cooldown_frac * lr_decay_steps
+            lr_constant_plus_cooldown_steps = (
+                args.lr_constant_plus_cooldown_frac * lr_decay_steps
+            )
         else:
             lr_constant_plus_cooldown_steps = 0
         lr_cooldown_steps = args.lr_cooldown_fraction * lr_decay_steps
@@ -650,9 +654,9 @@ def load_model_weights_only(model_provider_func):
             model=model[0], config=args.deepspeed_config_dict
         )
 
-        assert not isinstance(
-            model, deepspeed.PipelineEngine
-        ), "Weight loading only mode is not supported in pipeline parallelism yet."
+        assert not isinstance(model, deepspeed.PipelineEngine), (
+            "Weight loading only mode is not supported in pipeline parallelism yet."
+        )
         model = [model]
     print_datetime("before load checkpoint")
     if args.load is not None:
@@ -664,7 +668,7 @@ def load_model_weights_only(model_provider_func):
 
 
 @dlp.log
-@ez.dist.timeitlogit(rank=RANK)
+@ezpz.dist.timeitlogit(rank=RANK)
 def setup_model_and_optimizer(
     model_provider_func,
     model_type,
@@ -712,7 +716,6 @@ def setup_model_and_optimizer(
         if teacher:
             optimizer = None
         else:
-
             optimizer = get_megatron_optimizer(
                 model, no_wd_decay_cond, scale_lr_cond, lr_mult
             )
@@ -780,7 +783,7 @@ def setup_model_and_optimizer(
             )
             tds0 = time.time()
             if os.environ.get("PYINSTRUMENT_PROFILER", None):
-                profiler = ez.profile.get_context_manager(rank=RANK, outdir=args.save)
+                profiler = ezpz.profile.get_context_manager(rank=RANK, outdir=args.save)
             else:
                 profiler = Profile("deepspeed.initialize")
             log.info("Calling 'deepspeed.initialize'...")
@@ -1002,7 +1005,7 @@ def train_step(
 
 
 @dlp.log
-@ez.dist.timeitlogit(rank=RANK)
+@ezpz.dist.timeitlogit(rank=RANK)
 def save_checkpoint_and_time(iteration, model, optimizer, opt_param_scheduler):
     timers = get_timers()
     assert timers is not None
@@ -1121,7 +1124,7 @@ def train(
 
         # convenience handles for DP sync
         dp_group = mpu.get_data_parallel_group()
-        dev = torch.device(DEVICE_TYPE)  
+        dev = torch.device(DEVICE_TYPE)
 
         # Main LR finder loop
         for i in range(finder_iters):
@@ -1182,37 +1185,34 @@ def train(
             if smoothed_loss < best_loss or batch_num == 1:
                 best_loss = smoothed_loss
 
-          #  explode = (batch_num > 1 and smoothed_loss > 4 * best_loss)
-    
+            #  explode = (batch_num > 1 and smoothed_loss > 4 * best_loss)
 
-           # if explode:
-           #     if mpu.get_data_parallel_rank() == 0:
-           #         log.info(f"Loss exploding at lr={curr_lr:.8f}, stopping LR finder")
-           #     break
+            # if explode:
+            #     if mpu.get_data_parallel_rank() == 0:
+            #         log.info(f"Loss exploding at lr={curr_lr:.8f}, stopping LR finder")
+            #     break
 
             ## Record the best loss (use the same global smoothed_loss)
-            #if smoothed_loss < best_loss or batch_num == 1:
+            # if smoothed_loss < best_loss or batch_num == 1:
             #    best_loss = smoothed_loss
 
             # --- GLOBALIZE the "loss exploding" decision (any rank => all ranks) ---
-            #explode_local = (batch_num > 1 and smoothed_loss > 4 * best_loss)
-            #print(f"Rank {mpu.get_data_parallel_rank()}: explode_local={explode_local}")
-            #if mpu.get_data_parallel_rank() == 0:
-                
+            # explode_local = (batch_num > 1 and smoothed_loss > 4 * best_loss)
+            # print(f"Rank {mpu.get_data_parallel_rank()}: explode_local={explode_local}")
+            # if mpu.get_data_parallel_rank() == 0:
+
             #    print(f"Iter {i}: batch_num={batch_num}, smoothed_loss={smoothed_loss:.8f}, best_loss={best_loss:.8f}, ratio={smoothed_loss/best_loss:.2f}")
-            #if tdist.is_available() and tdist.is_initialized():
+            # if tdist.is_available() and tdist.is_initialized():
             #    _exp = torch.tensor([1 if explode_local else 0], device=dev)
             #    tdist.all_reduce(_exp, op=tdist.ReduceOp.MAX, group=dp_group)
             #    explode = bool(_exp.item())
-            #else:
+            # else:
             #    explode = explode_local
 
-            
-
-            #if explode:
+            # if explode:
             #    if mpu.get_data_parallel_rank() == 0:
             #        log.info(f"Loss exploding at lr={curr_lr:.8f}, stopping LR finder")
-                # Keep everyone in lockstep before breaking
+            # Keep everyone in lockstep before breaking
             #    if tdist.is_available() and tdist.is_initialized():
             #        tdist.barrier(group=dp_group)
             #    break
@@ -1224,7 +1224,7 @@ def train(
             # Print progress
             if (i + 1) % args.log_interval == 0 and mpu.get_data_parallel_rank() == 0:
                 log.info(
-                    f"LR Finder: iteration {i+1}/{finder_iters}, "
+                    f"LR Finder: iteration {i + 1}/{finder_iters}, "
                     f"lr: {curr_lr:.8f}, loss: {smoothed_loss:.4f}"
                 )
 
@@ -1702,7 +1702,7 @@ def cyclic_iter(iter):
 
 
 @dlp.log
-@ez.dist.timeitlogit(rank=RANK)
+@ezpz.dist.timeitlogit(rank=RANK)
 def build_train_valid_test_datasets(build_train_valid_test_datasets_provider):
     """Build pretraining datasets."""
 
@@ -1731,7 +1731,7 @@ def build_train_valid_test_datasets(build_train_valid_test_datasets_provider):
 
 
 @dlp.log
-@ez.dist.timeitlogit(rank=RANK)
+@ezpz.dist.timeitlogit(rank=RANK)
 def build_train_valid_test_data_loaders(build_train_valid_test_datasets_provider):
     """Build pretraining data loaders."""
     args = get_args()
@@ -1741,9 +1741,9 @@ def build_train_valid_test_data_loaders(build_train_valid_test_datasets_provider
     log.info("> building train, validation, and test datasets ...")
     # Backward compatibility, assume fixed batch size.
     if args.iteration > 0 and args.consumed_train_samples == 0:
-        assert (
-            args.train_samples is None
-        ), "only backward compatiblity support for iteration-based training"
+        assert args.train_samples is None, (
+            "only backward compatiblity support for iteration-based training"
+        )
         args.consumed_train_samples = args.iteration * args.global_batch_size
     if args.iteration > 0 and args.consumed_valid_samples == 0:
         if args.train_samples is None:
@@ -1802,7 +1802,7 @@ def build_train_valid_test_data_loaders(build_train_valid_test_datasets_provider
 
 
 @dlp.log
-@ez.dist.timeitlogit(rank=RANK)
+@ezpz.dist.timeitlogit(rank=RANK)
 def build_train_valid_test_data_iterators(build_train_valid_test_datasets_provider):
     """Build pretraining data iterators."""
 
