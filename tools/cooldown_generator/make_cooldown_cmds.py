@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
+
+import os
 from typing import Any, Optional
 import argparse
 from pathlib import Path
 from textwrap import dedent
+import ezpz
 
+# _FILE_PATH = Path(os.path.abspath(__file__)).parent
+# _MEGATRON_PATH = _FILE_PATH.parent.parent
 
-#!/bin/bash --login
-# PBS -q prod
-# PBS -A AuroraGPT
-# PBS -l walltime=06:00:00
-# PBS -l filesystems=flare:home
-# PBS -l select=256
-# PBS -j oe
-
-
-_FILE_PATH = Path(os.path.abspath(__file__)).parent
-_MEGATRON_PATH = _FILE_PATH.parent.parent
+logger = ezpz.get_logger(__name__)
 
 
 def get_header_template(
@@ -35,12 +30,77 @@ def get_header_template(
             "#PBS -j oe",
             "",
             "cd ${PBS_O_WORKDIR}",
+            "\n",
         ]
     )
 
 
 def fmt_float(x: float) -> str:
     return f"{x:.8f}".rstrip("0").rstrip(".")
+
+
+def get_total_iters_from_cooldown_percent(
+    checkpoint_iter: Optional[int] = None,
+    cooldown_percent: Optional[float] = None,
+    cooldown_steps: Optional[int] = None,
+    train_iters: Optional[int] = None,
+) -> dict:
+    if checkpoint_iter is None and train_iters is None:
+        raise ValueError("Expected one of {checkpoint_iter, train_iters}")
+    if cooldown_percent is None and cooldown_steps is None:
+        raise ValueError("Expected one of {cooldown_percent, cooldown_iters}")
+    if checkpoint_iter is None:
+        assert train_iters is not None
+        if cooldown_percent is None:
+            assert cooldown_steps is not None
+            checkpoint_iter = train_iters - cooldown_steps
+            cooldown_percent = (train_iters - cooldown_steps) / train_iters
+        elif cooldown_steps is None:
+            assert cooldown_percent is not None
+            cooldown_steps = int(train_iters * cooldown_percent)
+            checkpoint_iter = train_iters - cooldown_steps
+        else:
+            raise ValueError(
+                "Expected one of {cooldown_percent, cooldown_iters} to be specified"
+            )
+        assert (
+            checkpoint_iter is not None
+            and cooldown_percent is not None
+            and cooldown_steps is not None
+            and train_iters is not None
+        )
+        return {
+            "checkpoint_iter": checkpoint_iter,
+            "cooldown_percent": cooldown_percent,
+            "cooldown_iters": cooldown_steps,
+            "train_iters": train_iters,
+        }
+    if train_iters is None:
+        assert checkpoint_iter is not None
+        if cooldown_percent is None:
+            assert cooldown_steps is not None
+            train_iters = checkpoint_iter + cooldown_steps
+            cooldown_percent = (train_iters - cooldown_steps / train_iters)
+        elif cooldown_steps is None:
+            assert cooldown_percent is not None
+            cooldown_steps = int(cooldown_percent * checkpoint_iter)
+            train_iters = checkpoint_iter + cooldown_steps
+        else:
+            raise ValueError(
+                "Expected one of {cooldown_percent, cooldown_iters}"
+            )
+        assert (
+            checkpoint_iter is not None
+            and cooldown_percent is not None
+            and cooldown_steps is not None
+            and train_iters is not None
+        )
+        return {
+            "checkpoint_iter": checkpoint_iter,
+            "cooldown_percent": cooldown_percent,
+            "cooldown_iters": cooldown_steps,
+            "train_iters": train_iters,
+        }
 
 
 def build_command(
@@ -166,14 +226,21 @@ def main():
     p.add_argument("--filesystems", default="flare:home", type=str)
     p.add_argument("--nodes", default=256, type=int)
     p.add_argument("--include-header", type=str, default=None)
-    # p.add_argument()
-    # p.add_argument("--include-header", default="")
-    # p.add_argument("--include-header", default=None, type=)
+    p.add_argument("--train-iters", type=int, required=False)
+    p.add_argument("--train-tokens", type=int, required=False)
+    p.add_argument("--global-batch", type=int, required=False)
+    p.add_argument("--sequence-length", type=int, required=False)
+    p.add_argument("--lr", type=float, required=False)
+    p.add_argument("--micro-batch", type=int, required=False)
+    p.add_argument("--use-activation-checkpointing", type=int, required=False)
+    p.add_argument("--tokenizer-type", type=str, required=False)
+    p.add_argument("--tokenizer-model", type=str, required=False)
+    p.add_argument("--zero-stage", type=int, required=False)
     p.add_argument("--checkpoint-iters", "-S", type=int, nargs="+")
     p.add_argument("--cooldown-steps", "-R", type=int, nargs="+")
+    p.add_argument("--cooldown-percent", type=float, required=False)
     p.add_argument("--checkpoint-ids", type=int, nargs="+")
     p.add_argument("--pairs", type=str, nargs="*")
-
     args = p.parse_args()
     if args.include_header is None:
         args.include_header = get_header_template(
@@ -188,10 +255,6 @@ def main():
     if args.pairs:
         records = parse_pairs(args.pairs)
     else:
-        if not args.checkpoint_iters or not args.cooldown_steps:
-            raise SystemExit(
-                "Provide either --pairs OR both --checkpoint-iters and --cooldown-steps."
-            )
         ids = args.checkpoint_ids or list(range(1, len(args.checkpoint_iters) + 1))
         if len(ids) != len(args.checkpoint_iters):
             raise SystemExit(
@@ -230,9 +293,35 @@ def main():
             override_ckpt_opt_param=override_flag,
             extra_args=args.extra_args.strip(),
         )
+        latest_fp = Path(args.load).parent.joinpath("latest")
+        latest_ckpt_iter = Path(args.load).parent.joinpath("latest_checkpointed_iteration.txt")
+        ckpt_parent = Path(args.load).parent
+        if latest_fp.is_file():
+            logger.info(f"Found 'latest' in {ckpt_parent}!")
+            with latest_fp.open("r") as f:
+                _latest = f.read().rstrip("\n").lstrip("global_step")
+            assert int(_latest) == int(S), f"{_latest=} != {S=}"
+        else:
+            logger.info(f"No 'latest' in {ckpt_parent}!")
+            logger.info(f"Writing global_step{S} to {latest_fp}")
+            with latest_fp.open("w") as f:
+                f.write(f"global_step{S}")
+
+        if latest_ckpt_iter.is_file():
+            logger.info(f"Found 'latest_checkpointed_iteration.txt' in {ckpt_parent}!")
+            with latest_ckpt_iter.open("r") as f:
+                _latest = f.read().rstrip("\n")
+            assert int(_latest) == int(S), f"{_latest=} != {S=}"
+        else:
+            logger.info(f"No 'latest_checkpointed_iteration.txt' in {ckpt_parent}!")
+            logger.info(f"Writing {S} to {latest_ckpt_iter}")
+            with latest_ckpt_iter.open("w") as f:
+                f.write(f"{S}")
+
         block = f"{tag}\n{cmd}\n"
         if args.emit_sh:
-            outfile = f"cooldown_{cid}.sh"
+            outfile = f"cooldown_id{cid}_s{S}_r{R}_t{T}.sh"
+            logger.info(f"Writing:\n{block}\nto:\n{outfile}")
             with open(outfile, "w") as f:
                 f.write("".join(lines))
                 f.writelines(block + "\n")
