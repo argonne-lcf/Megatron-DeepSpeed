@@ -31,7 +31,7 @@ def main():
     runs_mod = {k: int(round(v / r) * r) for k, v in runs.items()}
 
     # <cooldown_percent>% of the FINAL (ttokens-1) step count, then rounded rollback
-    cooldown_iters = int(c * runs[ttokens - 1])
+    cooldown_iters = int(c * runs_mod[ttokens - 1])
     runs_rollback = {k: int(round((v - cooldown_iters) / r) * r) for k, v in runs_mod.items()}
 
     with open(args.out, "w") as f:
