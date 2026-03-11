@@ -96,7 +96,7 @@ setup() {
 	# # 4. Use these (^) to build our launch command
 	# ezpz_setup || exit
 	##########################################################################
-	install_dependencies
+	# install_dependencies
 	# Set command line arguments to pass to `"${EXEC}"`
 	setParams || exit
 	# Create `deepspeed_config.json` from runtime params from ^
@@ -361,26 +361,7 @@ setupLauncher() {
 		make_ds_hostfile || exit
 		export LAUNCHER="deepspeed --hostfile $hfds --launcher MPICH ${EXEC}"
 	else
-    LAUNCHER="ezpz-launch $(which python3) ${EXEC}"
-		# source <(curl -L https://bit.ly/ezpz-utils) && ezpz_setup_job
-		# echo "ezpz_launch: $(which ezpz_launch)"
-		# export -f ezpz_launch
-		# export LAUNCHER="ezpz_launch) $(which python3) -Wignore ${EXEC}"
-		# if [[ -n "${DIST_LAUNCH}" ]]; then
-		#     mn=$(ezpz_get_machine_name)
-		#     if [[ "${mn}" == "aurora" || "${mn}" == "sunspot" ]]; then
-		#         LAUNCHER="${DIST_LAUNCH} --pmi=pmix --genvall $(which python3) -Wignore ${EXEC}"
-		#     elif [[ "${mn}" == "sophia" ]]; then
-		#         LAUNCHER="${DIST_LAUNCH} $(which python3) -Wignore ${EXEC}"
-		#     else
-		#         LAUNCHER="${DIST_LAUNCH} --genvall $(which python3) -Wignore ${EXEC}"
-		#     fi
-		#     export LAUNCHER="${LAUNCHER}"
-		# else
-		#     echo "[setupLauncher][INFO]: Saving environment to: .env-${PBS_JOBID}"
-		#     printenv | tee ".env-${PBS_JOBID}"
-		#     echo "[setupLauncher][ERROR]: DIST_LAUNCH not found in environment !!"
-		# fi
+		LAUNCHER="ezpz launch $(which python3) ${EXEC}"
 	fi
 	printf "Launching with: %s\n" "$(printRed "${dist_launcher}")"
 	printf " %s" "$(printMagenta "${LAUNCHER}")"
@@ -501,7 +482,6 @@ set_ccl_vars_on_aurora() {
 	export FI_CXI_RX_MATCH_MODE=hybrid
 	export CCL_BCAST=double_tree
 }
-
 
 get_model_arch_AuroraGPT_2B() {
 	# AuroraGPT-2B
@@ -730,9 +710,9 @@ setParams() {
 	"llama3-3B" | "llama-3B")
 		get_model_arch_llama3_3B_customNlayers
 		;;
-  "2B" | "AuroraGPT-2B" | "AuroraGPT_2B" | "Aurora-GPT-2B" | "AuroraGPT2B" | "Aurora_GPT_2B" | "aurora-gpt-2b" | "aurora_gpt_2b")
-    get_model_arch_AuroraGPT_2B
-    ;;
+	"2B" | "AuroraGPT-2B" | "AuroraGPT_2B" | "Aurora-GPT-2B" | "AuroraGPT2B" | "Aurora_GPT_2B" | "aurora-gpt-2b" | "aurora_gpt_2b")
+		get_model_arch_AuroraGPT_2B
+		;;
 	"7B" | "AuroraGPT-7B" | "aurora-gpt-7b" | "llama-3.1-7B" | "llama-3.1-7b" | "llama-3.2-7B" | "llama-3.2-7b")
 		get_model_arch_7B
 		;;

@@ -10,14 +10,14 @@ GIT_BRANCH=$(git branch --show-current) && export GIT_BRANCH
 source <(curl -L https://bit.ly/ezpz-utils)
 ezpz_setup_env
 
-if  command -v "ezpz-test"; then
-    log_message INFO "${GREEN}✓${RESET} ezpz is already installed."
-    # printf "[!! %s] ezpz is already installed.\n" "$(printGreen "INFO")"
-else
-    log_message WARNING "${RED}✗${RESET} ezpz is not installed."
-    log_message INFO "Installing ezpz..."
-    python3 -m pip install "git+https://github.com/saforem2/ezpz" || exit
-fi
+# if  command -v "ezpz-test"; then
+#     log_message INFO "${GREEN}✓${RESET} ezpz is already installed."
+#     # printf "[!! %s] ezpz is already installed.\n" "$(printGreen "INFO")"
+# else
+#     log_message WARNING "${RED}✗${RESET} ezpz is not installed."
+#     log_message INFO "Installing ezpz..."
+#     python3 -m pip install "git+https://github.com/saforem2/ezpz" || exit
+# fi
 
 
 #####################################
@@ -62,6 +62,6 @@ train_aGPT() {
 
 
 # Kill any existing MPI processes
-ezpz_kill_mpi || exit
+# ezpz_kill_mpi || exit
 
 train_aGPT "$@"

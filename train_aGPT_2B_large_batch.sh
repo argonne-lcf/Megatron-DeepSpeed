@@ -6,22 +6,6 @@
 #PBS -l select=256
 
 
-# Optimizer Plans
-#
-# 1. Ongoing:
-#    - Lamb
-#      - 256 Nodes (50M Tok / batch, LR=2e-4)
-#      - 512 Nodes (100M Tok / batch, LR=2e-4)
-# 1. Up-next:
-#    256 Nodes @ 50M Tok / batch  
-#    - Sophia:
-#      - LR=2.17e-5
-#    - Muon
-#      - LR=1.82e-5
-#    - Muon-clip
-#      - LR=2.28e-5
-
-
 setup_env() {
     cd "${PBS_O_WORKDIR}" || {
         echo "Failed to change directory to ${PBS_O_WORKDIR}"
@@ -35,7 +19,7 @@ setup_env() {
 
 train_model() {
   MODEL_ARCH=AuroraGPT-2B \
-    OPT=muonclip \
+    OPT=sophiag \
     LR=2.28e-5 \
     GRAD_ACC_STEPS=2 \
     MICRO_BATCH=1 \
