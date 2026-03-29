@@ -39,70 +39,6 @@ def fmt_float(x: float) -> str:
     return f"{x:.8f}".rstrip("0").rstrip(".")
 
 
-def get_total_iters_from_cooldown_percent(
-    checkpoint_iter: Optional[int] = None,
-    cooldown_percent: Optional[float] = None,
-    cooldown_steps: Optional[int] = None,
-    train_iters: Optional[int] = None,
-) -> dict:
-    if checkpoint_iter is None and train_iters is None:
-        raise ValueError("Expected one of {checkpoint_iter, train_iters}")
-    if cooldown_percent is None and cooldown_steps is None:
-        raise ValueError("Expected one of {cooldown_percent, cooldown_iters}")
-    if checkpoint_iter is None:
-        assert train_iters is not None
-        if cooldown_percent is None:
-            assert cooldown_steps is not None
-            checkpoint_iter = train_iters - cooldown_steps
-            cooldown_percent = (train_iters - cooldown_steps) / train_iters
-        elif cooldown_steps is None:
-            assert cooldown_percent is not None
-            cooldown_steps = int(train_iters * cooldown_percent)
-            checkpoint_iter = train_iters - cooldown_steps
-        else:
-            raise ValueError(
-                "Expected one of {cooldown_percent, cooldown_iters} to be specified"
-            )
-        assert (
-            checkpoint_iter is not None
-            and cooldown_percent is not None
-            and cooldown_steps is not None
-            and train_iters is not None
-        )
-        return {
-            "checkpoint_iter": checkpoint_iter,
-            "cooldown_percent": cooldown_percent,
-            "cooldown_iters": cooldown_steps,
-            "train_iters": train_iters,
-        }
-    if train_iters is None:
-        assert checkpoint_iter is not None
-        if cooldown_percent is None:
-            assert cooldown_steps is not None
-            train_iters = checkpoint_iter + cooldown_steps
-            cooldown_percent = (train_iters - cooldown_steps / train_iters)
-        elif cooldown_steps is None:
-            assert cooldown_percent is not None
-            cooldown_steps = int(cooldown_percent * checkpoint_iter)
-            train_iters = checkpoint_iter + cooldown_steps
-        else:
-            raise ValueError(
-                "Expected one of {cooldown_percent, cooldown_iters}"
-            )
-        assert (
-            checkpoint_iter is not None
-            and cooldown_percent is not None
-            and cooldown_steps is not None
-            and train_iters is not None
-        )
-        return {
-            "checkpoint_iter": checkpoint_iter,
-            "cooldown_percent": cooldown_percent,
-            "cooldown_iters": cooldown_steps,
-            "train_iters": train_iters,
-        }
-
-
 def build_command(
     load_path: str,
     data_file_list: str,
@@ -160,7 +96,7 @@ def build_command(
             f"Only one of {train_tokens, train_iters} should be specified."
         )
         assert global_batch_size is not None and sequence_length is not None
-        train_iters = train_tokens * global_batch_size * sequence_length
+        train_iters = train_tokens // (global_batch_size * sequence_length)
 
     assert train_iters is not None
     env_lines.append(f"TRAIN_ITERS={train_iters}")
@@ -273,7 +209,7 @@ def main():
             with hfp.open("r") as f:
                 lines.extend(f.readlines())
         else:
-            lines.extend("\n".join(args.include_header.split("\n")))
+            lines.extend(args.include_header.splitlines(keepends=True))
     # if args.emit_sh:
 
     for rec in records:
