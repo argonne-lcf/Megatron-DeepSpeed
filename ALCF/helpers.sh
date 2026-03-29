@@ -1258,8 +1258,7 @@ generateDSconfig() {
               \"min_loss_scale\": 1
             },
             \"bfloat16\": {
-              \"enabled\": false,
-              \"loss_scale\": 1.0
+              \"enabled\": false
             },"
 	else
 		dtype="\"communication_data_type\": \"fp32\","
