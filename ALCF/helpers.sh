@@ -592,6 +592,79 @@ get_model_arch_70B() {
 	export MODEL_ARCH="AuroraGPT-70B"
 }
 
+get_model_arch_AuroraGPT_20B() {
+	# AuroraGPT-20B
+	export HEADS=40
+	export NLAYERS=64
+	export HIDDEN=5120
+	export NUM_KV_HEAD=8
+	export FFN_HIDDEN_SIZE=14336
+	export SEQ=8192
+	export MODEL_ARCH="AuroraGPT-20B"
+}
+
+# Aurora-native ~80B configs: n_kv_heads=12, n_heads divisible by 12
+# so TP can be any factor of 12 (2, 3, 4, 6, 12).
+
+get_model_arch_AuroraGPT_80B() {
+	# ~80.8B: Balanced width/depth. PP divides 84: {1,2,3,4,6,12}.
+	export HEADS=72
+	export NLAYERS=84
+	export HIDDEN=9216
+	export NUM_KV_HEAD=12
+	export FFN_HIDDEN_SIZE=25600
+	export SEQ=8192
+	export MODEL_ARCH="AuroraGPT-80B"
+}
+
+get_model_arch_AuroraGPT_80B_wide() {
+	# ~80.0B: Wider (dim=10752), shallower (48 layers).
+	# PP divides 48: {1,2,3,4,6,8,12,16,24}.
+	export HEADS=84
+	export NLAYERS=48
+	export HIDDEN=10752
+	export NUM_KV_HEAD=12
+	export FFN_HIDDEN_SIZE=39936
+	export SEQ=8192
+	export MODEL_ARCH="AuroraGPT-80B-wide"
+}
+
+get_model_arch_AuroraGPT_80B_deep() {
+	# ~80.9B: Narrower (dim=7680), deeper (96 layers).
+	# PP divides 96: {1,2,3,4,6,8,12,16,24}.
+	export HEADS=60
+	export NLAYERS=96
+	export HIDDEN=7680
+	export NUM_KV_HEAD=12
+	export FFN_HIDDEN_SIZE=28672
+	export SEQ=8192
+	export MODEL_ARCH="AuroraGPT-80B-deep"
+}
+
+get_model_arch_AuroraGPT_80B_alt() {
+	# ~80B: Like 80B but FFN_HIDDEN_SIZE divisible by 12
+	# for clean TP sharding across all factors of 12.
+	export HEADS=72
+	export NLAYERS=84
+	export HIDDEN=9216
+	export NUM_KV_HEAD=12
+	export FFN_HIDDEN_SIZE=25596
+	export SEQ=8192
+	export MODEL_ARCH="AuroraGPT-80B-alt"
+}
+
+get_model_arch_AuroraGPT_80B_deep_alt() {
+	# ~80B: Like 80B_deep but FFN_HIDDEN_SIZE divisible by 12
+	# for clean TP sharding across all factors of 12.
+	export HEADS=60
+	export NLAYERS=96
+	export HIDDEN=7680
+	export NUM_KV_HEAD=12
+	export FFN_HIDDEN_SIZE=28668
+	export SEQ=8192
+	export MODEL_ARCH="AuroraGPT-80B-deep-alt"
+}
+
 get_model_arch_33B() {
 	# 33B
 	export MODEL_KEY="AuroraGPT-33B"
@@ -715,6 +788,24 @@ setParams() {
 		;;
 	"7B" | "AuroraGPT-7B" | "aurora-gpt-7b" | "llama-3.1-7B" | "llama-3.1-7b" | "llama-3.2-7B" | "llama-3.2-7b")
 		get_model_arch_7B
+		;;
+	"20B" | "AuroraGPT-20B")
+		get_model_arch_AuroraGPT_20B
+		;;
+	"80B" | "AuroraGPT-80B")
+		get_model_arch_AuroraGPT_80B
+		;;
+	"80B_wide" | "AuroraGPT-80B-wide")
+		get_model_arch_AuroraGPT_80B_wide
+		;;
+	"80B_deep" | "AuroraGPT-80B-deep")
+		get_model_arch_AuroraGPT_80B_deep
+		;;
+	"80B_alt" | "AuroraGPT-80B-alt")
+		get_model_arch_AuroraGPT_80B_alt
+		;;
+	"80B_deep_alt" | "AuroraGPT-80B-deep-alt")
+		get_model_arch_AuroraGPT_80B_deep_alt
 		;;
 	*)
 		get_model_arch_7B
