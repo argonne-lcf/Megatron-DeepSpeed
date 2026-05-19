@@ -55,6 +55,20 @@ REPORT_FILTERS: dict[str, Any] = {
             "grateful-dust-4351",
             "glowing-disco-4352",
         ]}},
+        {"displayName": {"$nin": [
+            "happy-surf-4362",
+            "laced-puddle-4445",
+            "sage-universe-4443",
+            "dandy-sea-4440",
+            "twilight-dream-4439",
+            "vibrant-glitter-4358",
+            "dulcet-forest-4361",
+            "copper-pyramid-4359",
+            "lemon-aardvark-4360",
+            "sleek-tree-4390",
+            "autumn-sea-4394",
+        ]}},
+        {"tags": {"$nin": ["cooldown"]}},
     ]
 }
 

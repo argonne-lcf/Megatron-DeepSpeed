@@ -26,7 +26,12 @@ The same 22-clause filter as the report:
 - `world_size IN {3072, 6240}`, `num_layers IN {4..20}`
 - `tokenizer_model = google/gemma-7b`
 - summary `loss/lm loss` is not `NaN`
-- excluded: `treasured-thunder-4350`, `grateful-dust-4351`, `glowing-disco-4352`
+- tag is not `cooldown`
+- excluded: `treasured-thunder-4350`, `grateful-dust-4351`, `glowing-disco-4352`,
+  `happy-surf-4362`, `laced-puddle-4445`, `sage-universe-4443`, `dandy-sea-4440`,
+  `twilight-dream-4439`, `vibrant-glitter-4358`, `dulcet-forest-4361`,
+  `copper-pyramid-4359`, `lemon-aardvark-4360`, `sleek-tree-4390`,
+  `autumn-sea-4394`
 
 Curves are grouped by
 `(machine, NHOSTS, torch_version, global_batch_size, optimizer, data_file_list)`
