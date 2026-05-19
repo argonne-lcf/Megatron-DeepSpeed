@@ -96,7 +96,18 @@ def build_command(
             f"Only one of {train_tokens, train_iters} should be specified."
         )
         assert global_batch_size is not None and sequence_length is not None
-        train_iters = train_tokens // (global_batch_size * sequence_length)
+        assert global_batch_size > 0 and sequence_length > 0, (
+            f"global_batch_size and sequence_length must be positive, "
+            f"got {global_batch_size=}, {sequence_length=}"
+        )
+        tokens_per_iter = global_batch_size * sequence_length
+        if train_tokens < tokens_per_iter:
+            raise ValueError(
+                f"train_tokens={train_tokens} is smaller than one iteration's "
+                f"tokens ({tokens_per_iter}); would produce TRAIN_ITERS=0."
+            )
+        # Ceiling division so we never under-shoot the requested token budget.
+        train_iters = -(-train_tokens // tokens_per_iter)
 
     assert train_iters is not None
     env_lines.append(f"TRAIN_ITERS={train_iters}")

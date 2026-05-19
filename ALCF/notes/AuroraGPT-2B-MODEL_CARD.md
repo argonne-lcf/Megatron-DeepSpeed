@@ -87,7 +87,7 @@ micro-batch size 1 and gradient accumulation steps 2.
 | Setting | Value |
 |:---|:---|
 | Learning rate | 2.28e-5 (constant) |
-| Data | [OLMo Mix 1124](ALCF/data-lists/aurora/olmo-mix-1124.txt) |
+| Data | [OLMo Mix 1124](../data-lists/aurora/olmo-mix-1124.txt) |
 
 **Data sources**: `wiki`, `algebraic-stack`, `pes2o`, `open-web-math`, `arxiv`,
 `dclm`, `starcoder`
@@ -98,7 +98,7 @@ micro-batch size 1 and gradient accumulation steps 2.
 |:---|:---|
 | Learning rate | 2.17e-5 (constant) |
 | Cumulative tokens | ~7.064T |
-| Data | [Dolmino Mix 1124](ALCF/data-lists/aurora/dolmino-mix-1124-fused-file-list.txt) |
+| Data | [Dolmino Mix 1124](../data-lists/aurora/dolmino-mix-1124-fused-file-list.txt) |
 
 **Data sources**: `wiki`, `dclm`, `stackexchange`, `math`, `pes2o`, `flan`
 
@@ -108,7 +108,7 @@ micro-batch size 1 and gradient accumulation steps 2.
 |:---|:---|
 | Learning rate | 2.17e-5 (constant) |
 | Cumulative tokens | ~7.770T (+0.706T from Stage 2) |
-| Data | [NVIDIA Math + Code](ALCF/data-lists/aurora/nvidia-math1-code2.txt) |
+| Data | [NVIDIA Math + Code](../data-lists/aurora/nvidia-math1-code2.txt) |
 
 **Data sources** (from NVIDIA CC-MATH V1 and Nemotron Pretraining Code v2):
 `4plus`, `4plus_MIND`, `3` (level-3 math), `Synthetic-Code`
