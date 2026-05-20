@@ -34,6 +34,16 @@ CACHE_DIR = REPO_ROOT / "ALCF" / "AuroraGPT" / "2B" / ".cache"
 ENTITY = "aurora_gpt"
 PROJECT = "AuroraGPT"
 
+# Per-panel zoom insets keyed by filename:
+#   xlim, ylim, bounds = (left, bottom, width, height) in axes fraction
+INSETS: dict[str, dict] = {
+    "iter_time_vs_runtime": {
+        "xlim": (160, 195),
+        "ylim": (0, 5500),
+        "bounds": (0.42, 0.45, 0.32, 0.45),
+    },
+}
+
 # Same 22 filter clauses as the report.
 REPORT_FILTERS: dict[str, Any] = {
     "$and": [
@@ -203,6 +213,7 @@ def plot_panel(
 ) -> None:
     fig, ax = plt.subplots(figsize=(8, 4.5))
     drew_any = False
+    curves: list[tuple[np.ndarray, np.ndarray, str]] = []
     for gkey, runs_in_group in runs_by_group.items():
         xs: list[np.ndarray] = []
         ys: list[np.ndarray] = []
@@ -229,11 +240,10 @@ def plot_panel(
             x = x / 60.0
         if x_metric == "_timestamp":
             x = pd.to_datetime(x, unit="s")
-        # The first 5 grouping axes are constant for these runs, so the
-        # data-file-list is the only one worth showing in the legend.
         dfl = gkey[5] or "(unknown data)"
         dfl_short = Path(dfl).name if dfl else "?"
-        ax.plot(x, y, label=dfl_short, linewidth=1.2)
+        line, = ax.plot(x, y, label=dfl_short, linewidth=1.2)
+        curves.append((x, y, line.get_color()))
         drew_any = True
     if not drew_any:
         plt.close(fig)
@@ -248,6 +258,17 @@ def plot_panel(
         ax.set_yscale("log")
     if len(runs_by_group) <= 8:
         ax.legend(loc="best", fontsize=7, frameon=False)
+
+    inset_cfg = INSETS.get(fname)
+    if inset_cfg is not None:
+        axins = ax.inset_axes(inset_cfg["bounds"])
+        for x, y, color in curves:
+            axins.plot(x, y, color=color, linewidth=1.0)
+        axins.set_xlim(*inset_cfg["xlim"])
+        axins.set_ylim(*inset_cfg["ylim"])
+        axins.tick_params(labelsize=7)
+        ax.indicate_inset_zoom(axins, edgecolor="0.4", alpha=0.6, linewidth=0.8)
+
     fig.tight_layout()
     out = OUT_DIR / f"{fname}.png"
     OUT_DIR.mkdir(parents=True, exist_ok=True)
