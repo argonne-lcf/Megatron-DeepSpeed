@@ -91,6 +91,8 @@ REPORT_FILTERS: dict[str, Any] = {
             "autumn-sea-4394",
         ]}},
         {"tags": {"$nin": ["cooldown"]}},
+        {"config.args.value.data_file_list":
+            {"$nin": ["ALCF/data-lists/aurora/books.txt"]}},
     ]
 }
 
