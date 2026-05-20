@@ -41,58 +41,58 @@ so each line represents one training segment / data mixture.
 
 ### LM loss vs. consumed tokens (log y)
 
-![](assets/loss_lm_loss_vs_tokens.png)
+![](assets/loss_lm_loss_vs_tokens.svg)
 
 ### LM loss vs. consumed tokens (linear y)
 
-![](assets/loss_lm_loss_vs_tokens_linear.png)
+![](assets/loss_lm_loss_vs_tokens_linear.svg)
 
 ### Gradient norm vs. consumed tokens
 
-![](assets/grad_norm_vs_tokens.png)
+![](assets/grad_norm_vs_tokens.svg)
 
 ### Validation LM loss vs. iteration
 
-![](assets/val_lm_loss_vs_iter.png)
+![](assets/val_lm_loss_vs_iter.svg)
 
 ## Learning rate
 
 ### Learning rate vs. iteration (linear)
 
-![](assets/lr_vs_iter_linear.png)
+![](assets/lr_vs_iter_linear.svg)
 
 ### Learning rate vs. iteration (log-log)
 
-![](assets/lr_vs_iter_loglog.png)
+![](assets/lr_vs_iter_loglog.svg)
 
 ## Throughput
 
 ### Iteration time vs. wall time
 
-![](assets/iter_time_vs_runtime.png)
+![](assets/iter_time_vs_runtime.svg)
 
 ### Iteration time vs. wall time (zoomed to 0–5 s)
 
-![](assets/iter_time_vs_runtime_zoom.png)
+![](assets/iter_time_vs_runtime_zoom.svg)
 
 ### Tokens / sec vs. iteration
 
-![](assets/tokens_per_sec_vs_iter.png)
+![](assets/tokens_per_sec_vs_iter.svg)
 
 ### Tokens / GPU / sec vs. iteration
 
-![](assets/tokens_per_gpu_per_sec_vs_iter.png)
+![](assets/tokens_per_gpu_per_sec_vs_iter.svg)
 
 ### TFLOPs vs. wall time
 
-![](assets/tflops_lm_vs_runtime.png)
+![](assets/tflops_lm_vs_runtime.svg)
 
 ## Progress
 
 ### Approx. parameters in billions vs. wall time
 
-![](assets/params_in_billions_vs_time.png)
+![](assets/params_in_billions_vs_time.svg)
 
 ### Consumed tokens vs. wall time
 
-![](assets/consumed_tokens_vs_time.png)
+![](assets/consumed_tokens_vs_time.svg)

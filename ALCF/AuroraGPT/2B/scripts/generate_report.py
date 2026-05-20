@@ -40,7 +40,7 @@ INSETS: dict[str, dict] = {
     "iter_time_vs_runtime": {
         "xlim": (160, 195),
         "ylim": (0, 5500),
-        "bounds": (0.42, 0.45, 0.32, 0.45),
+        "bounds": (0.18, 0.45, 0.32, 0.45),
     },
 }
 
@@ -292,9 +292,9 @@ def plot_panel(
         ax.indicate_inset_zoom(axins, edgecolor="0.4", alpha=0.6, linewidth=0.8)
 
     fig.tight_layout()
-    out = OUT_DIR / f"{fname}.png"
+    out = OUT_DIR / f"{fname}.svg"
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out, dpi=150)
+    fig.savefig(out)
     plt.close(fig)
     print(f"  wrote {out.relative_to(REPO_ROOT)}")
 
