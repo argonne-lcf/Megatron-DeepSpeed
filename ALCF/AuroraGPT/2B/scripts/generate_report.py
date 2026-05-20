@@ -203,8 +203,7 @@ def plot_panel(
 ) -> None:
     fig, ax = plt.subplots(figsize=(8, 4.5))
     drew_any = False
-    cmap = plt.get_cmap("tab10")
-    for i, (gkey, runs_in_group) in enumerate(runs_by_group.items()):
+    for gkey, runs_in_group in runs_by_group.items():
         xs: list[np.ndarray] = []
         ys: list[np.ndarray] = []
         for run in runs_in_group:
@@ -234,7 +233,7 @@ def plot_panel(
         # data-file-list is the only one worth showing in the legend.
         dfl = gkey[5] or "(unknown data)"
         dfl_short = Path(dfl).name if dfl else "?"
-        ax.plot(x, y, label=dfl_short, color=cmap(i % 10), linewidth=1.2)
+        ax.plot(x, y, label=dfl_short, linewidth=1.2)
         drew_any = True
     if not drew_any:
         plt.close(fig)
