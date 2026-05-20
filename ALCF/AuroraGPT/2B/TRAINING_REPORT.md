@@ -71,6 +71,10 @@ so each line represents one training segment / data mixture.
 
 ![](assets/iter_time_vs_runtime.png)
 
+### Iteration time vs. wall time (zoomed to 0–5 s)
+
+![](assets/iter_time_vs_runtime_zoom.png)
+
 ### Tokens / sec vs. iteration
 
 ![](assets/tokens_per_sec_vs_iter.png)
@@ -79,7 +83,7 @@ so each line represents one training segment / data mixture.
 
 ![](assets/tokens_per_gpu_per_sec_vs_iter.png)
 
-### TFLOPs (LM) vs. wall time
+### TFLOPs vs. wall time
 
 ![](assets/tflops_lm_vs_runtime.png)
 

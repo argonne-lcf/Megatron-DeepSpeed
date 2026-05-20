@@ -44,6 +44,18 @@ INSETS: dict[str, dict] = {
     },
 }
 
+# Per-panel fixed y-axis limits keyed by filename.
+YLIMS: dict[str, tuple[float, float]] = {
+    "iter_time_vs_runtime_zoom": (0, 5),
+}
+
+# Per-panel stride for `[::N]` downsampling, keyed by filename.
+DOWNSAMPLE: dict[str, int] = {
+    "tokens_per_sec_vs_iter": 5,
+    "tokens_per_gpu_per_sec_vs_iter": 5,
+    "tflops_lm_vs_runtime": 5,
+}
+
 # Same 22 filter clauses as the report.
 REPORT_FILTERS: dict[str, Any] = {
     "$and": [
@@ -99,6 +111,9 @@ PANELS = [
     ("iter_time_vs_runtime",         "Iteration time vs. wall time",
      "_runtime", "training/iteration_time",
      "Wall time (min)", "Iteration time (s)", False, False),
+    ("iter_time_vs_runtime_zoom",    "Iteration time vs. wall time (zoom)",
+     "_runtime", "training/iteration_time",
+     "Wall time (min)", "Iteration time (s)", False, False),
     ("lr_vs_iter_linear",            "Learning rate vs. iteration",
      "learning-rate/iteration", "optimizer/learning_rate",
      "Iteration", "Learning rate", False, False),
@@ -111,9 +126,9 @@ PANELS = [
     ("tokens_per_sec_vs_iter",       "Tokens/sec vs. iteration",
      "throughput/iteration", "throughput/tokens_per_sec",
      "Iteration", "Tokens / sec", False, False),
-    ("tflops_lm_vs_runtime",         "TFLOPs (LM) vs. wall time",
+    ("tflops_lm_vs_runtime",         "TFLOPs vs. wall time",
      "_runtime", "throughput/tflops-lm",
-     "Wall time (min)", "TFLOPs (LM)", False, False),
+     "Wall time (min)", "TFLOPs", False, False),
     ("consumed_tokens_vs_time",      "Consumed tokens vs. wall time",
      "_timestamp", "training/consumed_tokens",
      "Date", "Consumed tokens", False, False),
@@ -214,6 +229,7 @@ def plot_panel(
     fig, ax = plt.subplots(figsize=(8, 4.5))
     drew_any = False
     curves: list[tuple[np.ndarray, np.ndarray, str]] = []
+    stride = DOWNSAMPLE.get(fname, 1)
     for gkey, runs_in_group in runs_by_group.items():
         xs: list[np.ndarray] = []
         ys: list[np.ndarray] = []
@@ -236,6 +252,8 @@ def plot_panel(
         y = np.concatenate(ys)
         order = np.argsort(x)
         x, y = x[order], y[order]
+        if stride > 1:
+            x, y = x[::stride], y[::stride]
         if x_metric == "_runtime":
             x = x / 60.0
         if x_metric == "_timestamp":
@@ -256,6 +274,8 @@ def plot_panel(
         ax.set_xscale("log")
     if y_log:
         ax.set_yscale("log")
+    if fname in YLIMS:
+        ax.set_ylim(*YLIMS[fname])
     if len(runs_by_group) <= 8:
         ax.legend(loc="best", fontsize=7, frameon=False)
 
