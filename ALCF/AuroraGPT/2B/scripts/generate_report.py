@@ -418,12 +418,15 @@ def plot_train_val_overlay(
     runs_by_group: dict[tuple, list[wandb.apis.public.Run]],
     theme: str,
 ) -> None:
-    """Overlay training loss (dotted) and validation loss (solid) per group."""
+    """Overlay training loss (line) and validation loss (markers) per group."""
+    from matplotlib.lines import Line2D
     fname = "train_val_loss_vs_iter"
     out_dir = ASSETS_DIR / theme
     fig, ax = plt.subplots(figsize=(12, 6.5))
     drew_any = False
     panel_rows: list[pd.DataFrame] = []
+    legend_handles: list[Line2D] = []
+    legend_labels: list[str] = []
     for gkey, runs_in_group in runs_by_group.items():
         train_xs: list[np.ndarray] = []
         train_ys: list[np.ndarray] = []
@@ -452,8 +455,7 @@ def plot_train_val_overlay(
             xt = np.concatenate(train_xs); yt = np.concatenate(train_ys)
             order = np.argsort(xt); xt, yt = xt[order], yt[order]
             xt, yt = xt[::10], yt[::10]
-            line, = ax.plot(xt, yt, linestyle="-", linewidth=1.6,
-                            label=f"{dfl_short} (train)")
+            line, = ax.plot(xt, yt, linestyle="-", linewidth=1.6)
             color = line.get_color()
             panel_rows.append(pd.DataFrame({
                 "group_data_file": dfl_short, "kind": "train",
@@ -469,24 +471,32 @@ def plot_train_val_overlay(
                 xv_p, yv_p,
                 s=22, color=color, marker="o",
                 edgecolors=THEMES[theme]["fg"], linewidths=0.6,
-                zorder=3, label=f"{dfl_short} (val)",
+                zorder=3,
             )
             panel_rows.append(pd.DataFrame({
                 "group_data_file": dfl_short, "kind": "val",
                 "color": color, "x": xv, "y": yv,
             }))
+        # One legend entry per group: line + marker in a single proxy
+        # handle so train and val collapse into the same row.
+        legend_handles.append(Line2D(
+            [0], [0], color=color, linestyle="-", linewidth=1.6,
+            marker="o", markersize=6,
+            markeredgecolor=THEMES[theme]["fg"], markeredgewidth=0.6,
+        ))
+        legend_labels.append(dfl_short)
         drew_any = True
     if not drew_any:
         plt.close(fig); return
     ax.set_xlabel("Iteration")
-    ax.set_ylabel("Loss")
+    ax.set_ylabel("Loss  (line = train, markers = val)")
     ax.set_yscale("log")
-    leg = ax.legend(
+    ax.legend(
+        legend_handles, legend_labels,
         loc="lower center", bbox_to_anchor=(0.5, 1.02),
-        ncol=2, frameon=False, handlelength=2.5,
+        ncol=min(len(legend_handles), 4),
+        frameon=False, handlelength=2.8,
     )
-    for handle in leg.legend_handles:
-        handle.set_alpha(1.0)
     fig.tight_layout()
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"{fname}.svg"
