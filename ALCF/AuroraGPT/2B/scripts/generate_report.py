@@ -353,9 +353,9 @@ def plot_panel(
         plt.close(fig)
         print(f"  [skip] {fname}: no data points")
         return
-    # Title moves into the legend area when the legend lives above the
-    # axes, so drop the redundant title.
-    if len(runs_by_group) > 8:
+    # When the legend lives above the axes (scatter panels) it takes the
+    # title's spot, so drop the title there to avoid the visual clash.
+    if not (len(runs_by_group) <= 8 and use_scatter):
         ax.set_title(title)
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
@@ -366,16 +366,19 @@ def plot_panel(
     if fname in YLIMS:
         ax.set_ylim(*YLIMS[fname])
     if len(runs_by_group) <= 8:
-        # Park the legend above the axes so it never sits on top of the data.
-        leg = ax.legend(
-            loc="lower center",
-            bbox_to_anchor=(0.5, 1.02),
-            ncol=min(len(runs_by_group), 4),
-            frameon=False,
-            handlelength=2.0,
-        )
-        # Make scatter markers full-opacity in the legend even though the
-        # scatter dots themselves are translucent.
+        # The scatter (iter-time) panels need the legend above the axes
+        # because the points fill the whole plot area; the line panels do
+        # not, so let matplotlib pick its best in-axes spot there.
+        if use_scatter:
+            leg = ax.legend(
+                loc="lower center",
+                bbox_to_anchor=(0.5, 1.02),
+                ncol=min(len(runs_by_group), 4),
+                frameon=False,
+                handlelength=2.0,
+            )
+        else:
+            leg = ax.legend(loc="best", frameon=False, handlelength=2.0)
         if use_scatter:
             for handle in leg.legend_handles:
                 handle.set_alpha(1.0)
@@ -493,9 +496,7 @@ def plot_train_val_overlay(
     ax.set_yscale("log")
     ax.legend(
         legend_handles, legend_labels,
-        loc="lower center", bbox_to_anchor=(0.5, 1.02),
-        ncol=min(len(legend_handles), 4),
-        frameon=False, handlelength=2.8,
+        loc="best", frameon=False, handlelength=2.8,
     )
     fig.tight_layout()
     out_dir.mkdir(parents=True, exist_ok=True)
