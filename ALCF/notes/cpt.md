@@ -30,7 +30,7 @@ A CPT strategy for the legacy model (**agpt-7B**) is provided at the end of this
 
 | CPT Stages | Distribution shift | Primary strategy | Fallbacks | Notes |
 |------|--------------------|------------------|-------------|-------|
-| Stage 1 → 2 | Weak | Naive CPT wih $D_1$ (no replay, no mixing) | 5% Replay: $D^{CPT}_{2} = 0.05D_0 + 0.95D_1$| Add $D_1$ to buffer $B$ |
+| Stage 1 → 2 | Weak | Naive CPT with $D_1$ (no replay, no mixing) | 5% Replay: $D^{CPT}_{2} = 0.05D_0 + 0.95D_1$| Add $D_1$ to buffer $B$ |
 | Stage 2 → 3 | Strong | 5-30% replay of $D^{CPT}_{2}$ and monitor loss  | Use buffer: $0.33D_0 + 0.33D_2 + 0.34B$| Add $D_2$ to buffer $B$, you might need to switch to LR centric strategy, see below |
 | Stage 3 → 4 | Strong | Cooldown with mix  $0.33D_0 + 0.33D_3 + 0.34B$ |  Cooldown with mix  $0.05D_0 + 0.47D_3 + 0.48B$  | You will need to continue decay if used in previous stage. Play with decay function,stages, and final LR value |
 
@@ -44,7 +44,7 @@ A key component of our setup is the **learning-rate scheduler**. Unlike the lega
 
 As a result, we primarily adopt a **data-centric strategy** throughout these stages, resorting to learning-rate adjustments only when necessary.
 
-The dataset $D_0$ for pretraining is Olmo-mix and has 4 Trillion tokens, then $D_1$ has 2 Trillion tokens from Dolmino and fineweb Edu meaning the data distribution between these two stages is weak. We then have $D_2$ for stage 3 that has 1.5 trillion tokens from math, code, ans science papers. Finally, we have $D_3$ stage 4 made of 0.5 trillion tokens from reasoning traces. 
+The dataset $D_0$ for pretraining is Olmo-mix and has 4 Trillion tokens, then $D_1$ has 2 Trillion tokens from Dolmino and fineweb Edu meaning the data distribution between these two stages is weak. We then have $D_2$ for stage 3 that has 1.5 trillion tokens from math, code, and science papers. Finally, we have $D_3$ stage 4 made of 0.5 trillion tokens from reasoning traces. 
 
 | Stage | Dataset Symbol | Size | Source / Path | Notes |
 |------:|----------------|----------------------|---------------|-------|
@@ -76,7 +76,7 @@ Note that data are added to the buffer $B$ **after** the current stage completes
 Naively continue training with $D_1$, no replay data. 
 - Continue training using only the current dataset $D_1$
 - No replay from $D_0$ or buffer data
-This may be sufficient under weak distribution shift but there is potential risks of forgetting
+This may be sufficient under weak distribution shift but there are potential risks of forgetting
 
 ##### Strategy 2: Replay from pretraining dataset
 `Important: USE A CHECKPOINT AT LR=LR_max i.e. BEFORE COOLING DOWN`. Then,replay the pretraining dataset
@@ -100,8 +100,8 @@ No buffer data is used at this stage, $\alpha_B=0$.
  ```bash
 python3 mix_datasets.py --input 0.9 /flare/Aurora_deployment/AuroraGPT/datasets/papers/papers.txt 0.1 /flare/Aurora_deployment/AuroraGPT/datasets/dolma/dolma_v1_7_file_list_v2.txt > ${debug_dir}/Megatron-DeepSpeed/ALCF/data-lists/aurora/mix_lucid_papers09_dolma01.txt
 ```
-2. **Start building the buffer $B$** in prevision of the next stages.
-3. **Run CPT**: Load your checkpoint and run CPT with the --finetube flag.
+2. **Start building the buffer $B$** in preparation for the next stages.
+3. **Run CPT**: Load your checkpoint and run CPT with the --finetune flag.
 Note that you might need to convert your checkpoints following [these instructions](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/main/ALCF/notes/universal_checkpoint_bug.md) to a universal checkpoint.
 
 At the end of this stage, we have $D^{CPT}_1$.
@@ -162,7 +162,7 @@ If Strategy 4 does not work:
   - adjusting the data-mixing strategy by **increasing the weight of pretraining data**.
 
 At the end of this stage, we have $D^{CPT}_2$.
-#### Stage 3 to stage 4 (shift to reasoning tracex)
+#### Stage 3 to stage 4 (shift to reasoning traces)
 ![stage 3 to 4](./assets/cpt_images/strategy_cpt_stage3tostage4-1.png)
 At this point, we only have ~6% of training left and one should start the final decay.
 
@@ -181,7 +181,7 @@ At this point, we only have ~6% of training left and one should start the final 
 
 ***If we did use Strategy 4 above:***
 We should keep decaying with $D^{CPT}_2$ until $LR_3/100$ then introduce the new mix at $LR_3/5$
-![stage 3 to 4 previous devay](./assets/cpt_images/strategy3_cpt_stage3tostage4ifprevdecay-1.png)
+![stage 3 to 4 previous decay](./assets/cpt_images/strategy3_cpt_stage3tostage4ifprevdecay-1.png)
 
 
 ## Legacy agpt-7b checkpoints
