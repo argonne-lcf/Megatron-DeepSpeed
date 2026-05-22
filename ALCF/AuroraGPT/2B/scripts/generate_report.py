@@ -95,11 +95,6 @@ DOWNSAMPLE: dict[str, int] = {
     "tokens_per_sec_vs_iter": 5,
     "tokens_per_gpu_per_sec_vs_iter": 5,
     "tflops_lm_vs_runtime": 5,
-    # Iter-time panels have ~160k points across all runs; without
-    # striding the SVG is ~28 MB. Stride 5 brings it under 6 MB without
-    # changing the visible shape.
-    "iter_time_vs_runtime": 5,
-    "iter_time_vs_runtime_zoom": 5,
 }
 
 # Panels where we want a scatter (markers, no connecting line) instead of
@@ -325,14 +320,14 @@ def plot_panel(
         dfl = gkey[5] or "(unknown data)"
         dfl_short = Path(dfl).name if dfl else "?"
         if use_scatter:
-            # Big enough to read individually. No edge color because the
-            # background is transparent — we use a contrasting (foreground)
-            # edge with reduced alpha so overlapping points stay
-            # distinguishable on either light or dark pages.
+            # Big enough to read individually. Rasterize the scatter
+            # itself (axes/labels/legend stay vector) so the SVG stays
+            # under ~200 KB instead of 28 MB when ~160k points are drawn.
             sc = ax.scatter(
                 x, y,
                 s=28, alpha=0.55, label=dfl_short,
                 linewidths=0.6, edgecolors=THEMES[theme]["fg"],
+                rasterized=True,
             )
             color = sc.get_facecolor()[0]
             from matplotlib.colors import to_hex
@@ -409,7 +404,10 @@ def plot_panel(
     fig.tight_layout()
     out = out_dir / f"{fname}.svg"
     out_dir.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out, transparent=True)
+    # `dpi` controls the resolution of any rasterized=True artists; 200
+    # is sharp enough on hi-dpi displays while keeping the embedded PNG
+    # under a few hundred KB.
+    fig.savefig(out, transparent=True, dpi=200)
     plt.close(fig)
     print(f"  wrote {out.relative_to(REPO_ROOT)}")
 
