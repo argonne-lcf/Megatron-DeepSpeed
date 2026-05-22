@@ -462,15 +462,13 @@ def plot_train_val_overlay(
         if val_xs:
             xv = np.concatenate(val_xs); yv = np.concatenate(val_ys)
             order = np.argsort(xv); xv, yv = xv[order], yv[order]
-            # Stride to ~30 markers per group so the dots read as discrete
-            # checkpoints instead of merging into a solid blob.
-            target = 30
+            target = 15
             step = max(1, len(xv) // target)
             xv_p, yv_p = xv[::step], yv[::step]
             ax.scatter(
                 xv_p, yv_p,
-                s=80, color=color, marker="o",
-                edgecolors=THEMES[theme]["fg"], linewidths=1.1,
+                s=22, color=color, marker="o",
+                edgecolors=THEMES[theme]["fg"], linewidths=0.6,
                 zorder=3, label=f"{dfl_short} (val)",
             )
             panel_rows.append(pd.DataFrame({
