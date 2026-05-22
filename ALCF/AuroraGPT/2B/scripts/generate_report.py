@@ -95,6 +95,11 @@ DOWNSAMPLE: dict[str, int] = {
     "tokens_per_sec_vs_iter": 5,
     "tokens_per_gpu_per_sec_vs_iter": 5,
     "tflops_lm_vs_runtime": 5,
+    # Iter-time panels have ~160k points across all runs; without
+    # striding the SVG is ~28 MB. Stride 5 brings it under 6 MB without
+    # changing the visible shape.
+    "iter_time_vs_runtime": 5,
+    "iter_time_vs_runtime_zoom": 5,
 }
 
 # Panels where we want a scatter (markers, no connecting line) instead of
