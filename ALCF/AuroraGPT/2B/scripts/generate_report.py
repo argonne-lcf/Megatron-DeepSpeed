@@ -54,17 +54,14 @@ PROJECT = "AuroraGPT"
 
 # Per-panel zoom insets keyed by filename:
 #   xlim, ylim, bounds = (left, bottom, width, height) in axes fraction
-INSETS: dict[str, dict] = {
-    "iter_time_vs_runtime": {
-        "xlim": (160, 195),
-        "ylim": (0, 5500),
-        "bounds": (0.18, 0.45, 0.32, 0.45),
-    },
-}
+INSETS: dict[str, dict] = {}
 
 # Per-panel fixed y-axis limits keyed by filename.
 YLIMS: dict[str, tuple[float, float]] = {
-    "iter_time_vs_runtime_zoom": (0, 5),
+    # Steady-state iter time is ~3.4 s, p99 is ~26 s. 50 s shows the bulk
+    # plus moderate spikes without being dominated by the few outliers
+    # at 2500+ s (visible on the un-zoomed panel).
+    "iter_time_vs_runtime_zoom": (0, 50),
 }
 
 # Per-panel stride for `[::N]` downsampling, keyed by filename.
