@@ -451,9 +451,8 @@ def plot_train_val_overlay(
         if train_xs:
             xt = np.concatenate(train_xs); yt = np.concatenate(train_ys)
             order = np.argsort(xt); xt, yt = xt[order], yt[order]
-            # Stride down so the dotted line stays readable.
             xt, yt = xt[::10], yt[::10]
-            line, = ax.plot(xt, yt, linestyle=":", linewidth=1.4,
+            line, = ax.plot(xt, yt, linestyle="-", linewidth=1.6,
                             label=f"{dfl_short} (train)")
             color = line.get_color()
             panel_rows.append(pd.DataFrame({
@@ -463,11 +462,20 @@ def plot_train_val_overlay(
         if val_xs:
             xv = np.concatenate(val_xs); yv = np.concatenate(val_ys)
             order = np.argsort(xv); xv, yv = xv[order], yv[order]
-            line, = ax.plot(xv, yv, linestyle="-", linewidth=1.8,
-                            color=color, label=f"{dfl_short} (val)")
+            # Stride to ~30 markers per group so the dots read as discrete
+            # checkpoints instead of merging into a solid blob.
+            target = 30
+            step = max(1, len(xv) // target)
+            xv_p, yv_p = xv[::step], yv[::step]
+            ax.scatter(
+                xv_p, yv_p,
+                s=80, color=color, marker="o",
+                edgecolors=THEMES[theme]["fg"], linewidths=1.1,
+                zorder=3, label=f"{dfl_short} (val)",
+            )
             panel_rows.append(pd.DataFrame({
                 "group_data_file": dfl_short, "kind": "val",
-                "color": line.get_color(), "x": xv, "y": yv,
+                "color": color, "x": xv, "y": yv,
             }))
         drew_any = True
     if not drew_any:
