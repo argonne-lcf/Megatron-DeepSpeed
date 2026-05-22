@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="564.56949pt" height="311.556pt" viewBox="0 0 564.56949 311.556" xmlns="http://www.w3.org/2000/svg" version="1.1">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="807.919477pt" height="442.600724pt" viewBox="0 0 807.919477 442.600724" xmlns="http://www.w3.org/2000/svg" version="1.1">
  <metadata>
   <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
    <cc:Work>
     <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
-    <dc:date>2026-05-21T20:45:43.438888</dc:date>
+    <dc:date>2026-05-21T22:08:17.761319</dc:date>
     <dc:format>image/svg+xml</dc:format>
     <dc:creator>
      <cc:Agent>
@@ -21,35 +21,35 @@
  </defs>
  <g id="figure_1">
   <g id="patch_1">
-   <path d="M 0 311.556 
-L 564.56949 311.556 
-L 564.56949 0 
+   <path d="M 0 442.600724 
+L 807.919477 442.600724 
+L 807.919477 0 
 L 0 0 
-L 0 311.556 
+L 0 442.600724 
 z
 " style="fill: none"/>
   </g>
   <g id="axes_1">
    <g id="patch_2">
-    <path d="M 47.075625 274.056 
-L 557.36949 274.056 
-L 557.36949 25.3095 
-L 47.075625 25.3095 
-L 47.075625 274.056 
+    <path d="M 58.043437 396.550724 
+L 800.719477 396.550724 
+L 800.719477 43.713923 
+L 58.043437 43.713923 
+L 58.043437 396.550724 
 z
 " style="fill: none"/>
    </g>
    <g id="matplotlib.axis_1">
     <g id="xtick_1">
      <g id="line2d_1">
-      <path d="M 70.270801 274.056 
-L 70.270801 25.3095 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
+      <path d="M 91.801439 396.550724 
+L 91.801439 43.713923 
+" clip-path="url(#pff6f9cbaad)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
      </g>
      <g id="line2d_2"/>
      <g id="text_1">
       <!-- $\mathdefault{10^{0}}$ -->
-      <g style="fill: #838383" transform="translate(61.930801 286.376) scale(0.12 -0.12)">
+      <g style="fill: #838383" transform="translate(81.376439 411.075724) scale(0.15 -0.15)">
        <defs>
         <path id="Iosevka-Custom-31" d="M 480 0 
 L 480 448 
@@ -151,14 +151,14 @@ z
     </g>
     <g id="xtick_2">
      <g id="line2d_3">
-      <path d="M 159.678646 274.056 
-L 159.678646 25.3095 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
+      <path d="M 221.924628 396.550724 
+L 221.924628 43.713923 
+" clip-path="url(#pff6f9cbaad)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
      </g>
      <g id="line2d_4"/>
      <g id="text_2">
       <!-- $\mathdefault{10^{1}}$ -->
-      <g style="fill: #838383" transform="translate(151.338646 286.376) scale(0.12 -0.12)">
+      <g style="fill: #838383" transform="translate(211.499628 411.075724) scale(0.15 -0.15)">
        <use xlink:href="#Iosevka-Custom-31" transform="translate(0 0.15)"/>
        <use xlink:href="#Iosevka-Custom-30" transform="translate(49.999985 0.15)"/>
        <use xlink:href="#Iosevka-Custom-31" transform="translate(100.909969 36.55) scale(0.7)"/>
@@ -167,14 +167,14 @@ L 159.678646 25.3095
     </g>
     <g id="xtick_3">
      <g id="line2d_5">
-      <path d="M 249.086492 274.056 
-L 249.086492 25.3095 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
+      <path d="M 352.047816 396.550724 
+L 352.047816 43.713923 
+" clip-path="url(#pff6f9cbaad)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
      </g>
      <g id="line2d_6"/>
      <g id="text_3">
       <!-- $\mathdefault{10^{2}}$ -->
-      <g style="fill: #838383" transform="translate(240.746492 286.376) scale(0.12 -0.12)">
+      <g style="fill: #838383" transform="translate(341.622816 411.075724) scale(0.15 -0.15)">
        <defs>
         <path id="Iosevka-Custom-32" d="M 410 0 
 L 410 448 
@@ -225,14 +225,14 @@ z
     </g>
     <g id="xtick_4">
      <g id="line2d_7">
-      <path d="M 338.494338 274.056 
-L 338.494338 25.3095 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
+      <path d="M 482.171005 396.550724 
+L 482.171005 43.713923 
+" clip-path="url(#pff6f9cbaad)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
      </g>
      <g id="line2d_8"/>
      <g id="text_4">
       <!-- $\mathdefault{10^{3}}$ -->
-      <g style="fill: #838383" transform="translate(330.154338 286.376) scale(0.12 -0.12)">
+      <g style="fill: #838383" transform="translate(471.746005 411.075724) scale(0.15 -0.15)">
        <defs>
         <path id="Iosevka-Custom-33" d="M 1619 -51 
 Q 1453 -51 1289 -25 
@@ -312,14 +312,14 @@ z
     </g>
     <g id="xtick_5">
      <g id="line2d_9">
-      <path d="M 427.902184 274.056 
-L 427.902184 25.3095 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
+      <path d="M 612.294193 396.550724 
+L 612.294193 43.713923 
+" clip-path="url(#pff6f9cbaad)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
      </g>
      <g id="line2d_10"/>
      <g id="text_5">
       <!-- $\mathdefault{10^{4}}$ -->
-      <g style="fill: #838383" transform="translate(419.562184 286.376) scale(0.12 -0.12)">
+      <g style="fill: #838383" transform="translate(601.869193 411.075724) scale(0.15 -0.15)">
        <defs>
         <path id="Iosevka-Custom-34" d="M 1882 0 
 L 1882 1242 
@@ -349,14 +349,14 @@ z
     </g>
     <g id="xtick_6">
      <g id="line2d_11">
-      <path d="M 517.310029 274.056 
-L 517.310029 25.3095 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
+      <path d="M 742.417382 396.550724 
+L 742.417382 43.713923 
+" clip-path="url(#pff6f9cbaad)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
      </g>
      <g id="line2d_12"/>
      <g id="text_6">
       <!-- $\mathdefault{10^{5}}$ -->
-      <g style="fill: #838383" transform="translate(508.970029 286.376) scale(0.12 -0.12)">
+      <g style="fill: #838383" transform="translate(731.992382 411.075724) scale(0.15 -0.15)">
        <defs>
         <path id="Iosevka-Custom-35" d="M 1613 -51 
 Q 1459 -51 1305 -22 
@@ -556,7 +556,7 @@ z
     </g>
     <g id="text_7">
      <!-- Iteration -->
-     <g style="fill: #838383" transform="translate(275.222557 301.776) scale(0.12 -0.12)">
+     <g style="fill: #838383" transform="translate(388.881457 431.530724) scale(0.18 -0.18)">
       <defs>
        <path id="Iosevka-Custom-49" d="M 480 0 
 L 480 448 
@@ -895,14 +895,14 @@ z
    <g id="matplotlib.axis_2">
     <g id="ytick_1">
      <g id="line2d_58">
-      <path d="M 47.075625 242.377447 
-L 557.36949 242.377447 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
+      <path d="M 58.043437 351.615983 
+L 800.719477 351.615983 
+" clip-path="url(#pff6f9cbaad)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
      </g>
      <g id="line2d_59"/>
      <g id="text_8">
       <!-- $\mathdefault{10^{-8}}$ -->
-      <g style="fill: #838383" transform="translate(22.695625 246.787447) scale(0.12 -0.12)">
+      <g style="fill: #838383" transform="translate(28.443437 357.128483) scale(0.15 -0.15)">
        <defs>
         <path id="Iosevka-Custom-2212" d="M 410 1952 
 L 410 2400 
@@ -1000,14 +1000,14 @@ z
     </g>
     <g id="ytick_2">
      <g id="line2d_60">
-      <path d="M 47.075625 180.706902 
-L 557.36949 180.706902 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
+      <path d="M 58.043437 264.138823 
+L 800.719477 264.138823 
+" clip-path="url(#pff6f9cbaad)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
      </g>
      <g id="line2d_61"/>
      <g id="text_9">
       <!-- $\mathdefault{10^{-7}}$ -->
-      <g style="fill: #838383" transform="translate(22.695625 185.116902) scale(0.12 -0.12)">
+      <g style="fill: #838383" transform="translate(28.443437 269.651323) scale(0.15 -0.15)">
        <defs>
         <path id="Iosevka-Custom-37" d="M 934 0 
 L 2272 4256 
@@ -1032,14 +1032,14 @@ z
     </g>
     <g id="ytick_3">
      <g id="line2d_62">
-      <path d="M 47.075625 119.036358 
-L 557.36949 119.036358 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
+      <path d="M 58.043437 176.661662 
+L 800.719477 176.661662 
+" clip-path="url(#pff6f9cbaad)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
      </g>
      <g id="line2d_63"/>
      <g id="text_10">
       <!-- $\mathdefault{10^{-6}}$ -->
-      <g style="fill: #838383" transform="translate(22.695625 123.446358) scale(0.12 -0.12)">
+      <g style="fill: #838383" transform="translate(28.443437 182.174162) scale(0.15 -0.15)">
        <defs>
         <path id="Iosevka-Custom-36" d="M 1600 -51 
 Q 1408 -51 1222 0 
@@ -1114,14 +1114,14 @@ z
     </g>
     <g id="ytick_4">
      <g id="line2d_64">
-      <path d="M 47.075625 57.365814 
-L 557.36949 57.365814 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
+      <path d="M 58.043437 89.184502 
+L 800.719477 89.184502 
+" clip-path="url(#pff6f9cbaad)" style="fill: none; stroke-dasharray: 1.48,0.64; stroke-dashoffset: 0; stroke: #838383; stroke-opacity: 0.25; stroke-width: 0.4"/>
      </g>
      <g id="line2d_65"/>
      <g id="text_11">
       <!-- $\mathdefault{10^{-5}}$ -->
-      <g style="fill: #838383" transform="translate(22.695625 61.775814) scale(0.12 -0.12)">
+      <g style="fill: #838383" transform="translate(28.443437 94.697002) scale(0.15 -0.15)">
        <use xlink:href="#Iosevka-Custom-31" transform="translate(0 0.15)"/>
        <use xlink:href="#Iosevka-Custom-30" transform="translate(49.999985 0.15)"/>
        <use xlink:href="#Iosevka-Custom-2212" transform="translate(100.909969 36.55) scale(0.7)"/>
@@ -1227,7 +1227,7 @@ L 557.36949 57.365814
     </g>
     <g id="text_12">
      <!-- Learning rate -->
-     <g style="fill: #838383" transform="translate(16.02 188.68275) rotate(-90) scale(0.12 -0.12)">
+     <g style="fill: #838383" transform="translate(20.43 278.632323) rotate(-90) scale(0.18 -0.18)">
       <defs>
        <path id="Iosevka-Custom-4c" d="M 614 0 
 L 614 4704 
@@ -1357,187 +1357,57 @@ z
     </g>
    </g>
    <g id="line2d_98">
-    <path d="M 70.270801 262.749341 
-L 398.303245 36.616159 
-L 398.303245 36.616159 
-L 514.433243 36.616159 
-L 514.433243 36.616159 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke: #2196f3; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 91.801439 380.512687 
+L 569.131383 59.75196 
+L 569.131383 59.75196 
+L 738.230539 59.75196 
+L 738.230539 59.75196 
+" clip-path="url(#pff6f9cbaad)" style="fill: none; stroke: #2196f3; stroke-width: 1.2; stroke-linecap: round"/>
    </g>
    <g id="line2d_99">
-    <path d="M 514.433661 36.616159 
-L 530.472528 36.616159 
-L 530.472528 36.616159 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke: #ef5350; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 738.231147 59.75196 
+L 761.573936 59.75196 
+L 761.573936 59.75196 
+" clip-path="url(#pff6f9cbaad)" style="fill: none; stroke: #ef5350; stroke-width: 1.2; stroke-linecap: round"/>
    </g>
    <g id="line2d_100">
-    <path d="M 530.472804 36.616159 
-L 534.174314 36.616159 
-L 534.174314 36.616159 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke: #4caf50; stroke-width: 1.2; stroke-linecap: round"/>
-   </g>
-   <g id="line2d_101">
-    <path d="M 530.472804 36.616159 
-L 534.174314 36.616159 
-L 534.174314 36.616159 
-" clip-path="url(#p61f0434d0a)" style="fill: none; stroke: #ffa726; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 761.574339 59.75196 
+L 766.961476 59.75196 
+L 766.961476 59.75196 
+" clip-path="url(#pff6f9cbaad)" style="fill: none; stroke: #4caf50; stroke-width: 1.2; stroke-linecap: round"/>
    </g>
    <g id="patch_3">
-    <path d="M 47.075625 274.056 
-L 47.075625 25.3095 
+    <path d="M 58.043437 396.550724 
+L 58.043437 43.713924 
 " style="fill: none"/>
    </g>
    <g id="patch_4">
-    <path d="M 557.36949 274.056 
-L 557.36949 25.3095 
+    <path d="M 800.719477 396.550724 
+L 800.719477 43.713924 
 " style="fill: none"/>
    </g>
    <g id="patch_5">
-    <path d="M 47.075625 274.056 
-L 557.36949 274.056 
+    <path d="M 58.043437 396.550724 
+L 800.719477 396.550724 
 " style="fill: none"/>
    </g>
    <g id="patch_6">
-    <path d="M 47.075625 25.3095 
-L 557.36949 25.3095 
+    <path d="M 58.043437 43.713923 
+L 800.719477 43.713923 
 " style="fill: none"/>
    </g>
-   <g id="text_13">
-    <!-- Learning rate vs. iteration (log-log) -->
-    <g style="fill: #838383" transform="translate(169.022557 19.3095) scale(0.144 -0.144)">
-     <defs>
-      <path id="Iosevka-Custom-76" d="M 1312 0 
-L 282 3328 
-L 806 3328 
-L 1446 1107 
-Q 1485 973 1523 838 
-Q 1562 704 1600 563 
-Q 1638 704 1676 838 
-Q 1715 973 1754 1107 
-L 2394 3328 
-L 2918 3328 
-L 1888 0 
-L 1312 0 
-z
-" transform="scale(0.015625)"/>
-      <path id="Iosevka-Custom-73" d="M 1594 -51 
-Q 1453 -51 1312 -35 
-Q 1171 -19 1036 29 
-Q 902 77 780 153 
-Q 659 230 572 342 
-Q 486 454 441 592 
-Q 397 730 397 870 
-L 397 890 
-L 896 890 
-L 896 883 
-Q 896 762 963 659 
-Q 1030 557 1132 496 
-Q 1235 435 1353 416 
-Q 1472 397 1594 397 
-Q 1709 397 1827 416 
-Q 1946 435 2048 489 
-Q 2150 544 2224 643 
-Q 2298 742 2298 858 
-Q 2298 973 2237 1072 
-Q 2176 1171 2086 1235 
-Q 1997 1299 1891 1334 
-Q 1786 1370 1677 1395 
-Q 1568 1421 1462 1446 
-Q 1357 1472 1251 1510 
-Q 1146 1549 1046 1597 
-Q 947 1645 857 1712 
-Q 768 1779 694 1862 
-Q 621 1946 569 2045 
-Q 518 2144 489 2253 
-Q 461 2362 461 2470 
-Q 461 2611 502 2742 
-Q 544 2874 627 2986 
-Q 710 3098 825 3174 
-Q 941 3251 1069 3299 
-Q 1197 3347 1334 3363 
-Q 1472 3379 1606 3379 
-Q 1747 3379 1881 3363 
-Q 2016 3347 2147 3299 
-Q 2278 3251 2390 3171 
-Q 2502 3091 2585 2982 
-Q 2669 2874 2710 2739 
-Q 2752 2605 2752 2470 
-L 2752 2451 
-L 2253 2451 
-L 2253 2458 
-Q 2253 2573 2195 2672 
-Q 2138 2771 2042 2832 
-Q 1946 2893 1834 2912 
-Q 1722 2931 1606 2931 
-Q 1498 2931 1386 2912 
-Q 1274 2893 1178 2835 
-Q 1082 2778 1018 2682 
-Q 954 2586 954 2470 
-Q 954 2362 1011 2262 
-Q 1069 2163 1158 2096 
-Q 1248 2029 1353 1993 
-Q 1459 1958 1568 1932 
-Q 1677 1907 1785 1881 
-Q 1894 1856 2000 1821 
-Q 2106 1786 2205 1734 
-Q 2304 1683 2390 1616 
-Q 2477 1549 2553 1465 
-Q 2630 1382 2681 1283 
-Q 2733 1184 2761 1075 
-Q 2790 966 2790 858 
-Q 2790 717 2745 582 
-Q 2701 448 2611 336 
-Q 2522 224 2403 147 
-Q 2285 70 2150 25 
-Q 2016 -19 1875 -35 
-Q 1734 -51 1594 -51 
-z
-" transform="scale(0.015625)"/>
-      <path id="Iosevka-Custom-2e" d="M 1600 -51 
-Q 1498 -51 1402 -22 
-Q 1306 6 1232 80 
-Q 1158 154 1129 250 
-Q 1101 346 1101 448 
-Q 1101 550 1129 646 
-Q 1158 742 1232 816 
-Q 1306 890 1402 918 
-Q 1498 947 1600 947 
-Q 1702 947 1798 918 
-Q 1894 890 1968 816 
-Q 2042 742 2070 646 
-Q 2099 550 2099 448 
-Q 2099 346 2070 250 
-Q 2042 154 1968 80 
-Q 1894 6 1798 -22 
-Q 1702 -51 1600 -51 
-z
-" transform="scale(0.015625)"/>
-      <path id="Iosevka-Custom-28" d="M 2381 -1030 
-Q 2106 -877 1866 -669 
-Q 1626 -461 1434 -208 
-Q 1242 45 1107 333 
-Q 973 621 889 925 
-Q 806 1229 771 1545 
-Q 736 1862 736 2176 
-Q 736 2490 771 2806 
-Q 806 3123 889 3427 
-Q 973 3731 1107 4019 
-Q 1242 4307 1434 4560 
-Q 1626 4813 1866 5021 
-Q 2106 5229 2381 5382 
-L 2624 4992 
-Q 2272 4787 1993 4473 
-Q 1715 4160 1542 3785 
-Q 1370 3411 1302 2998 
-Q 1235 2586 1235 2176 
-Q 1235 1766 1302 1353 
-Q 1370 941 1542 566 
-Q 1715 192 1993 -121 
-Q 2272 -435 2624 -640 
-L 2381 -1030 
-z
-" transform="scale(0.015625)"/>
-      <path id="Iosevka-Custom-6c" d="M 480 0 
+   <g id="legend_1">
+    <g id="line2d_101">
+     <path d="M 69.281457 17.508594 
+L 82.281457 17.508594 
+L 95.281457 17.508594 
+" style="fill: none; stroke: #2196f3; stroke-width: 1.2; stroke-linecap: round"/>
+    </g>
+    <g id="text_13">
+     <!-- olmo-mix-1124.txt -->
+     <g style="fill: #838383" transform="translate(105.681457 22.058594) scale(0.13 -0.13)">
+      <defs>
+       <path id="Iosevka-Custom-6c" d="M 480 0 
 L 480 448 
 L 1395 448 
 L 1395 4256 
@@ -1550,89 +1420,6 @@ L 2720 0
 L 480 0 
 z
 " transform="scale(0.015625)"/>
-      <path id="Iosevka-Custom-2d" d="M 410 1952 
-L 410 2400 
-L 2790 2400 
-L 2790 1952 
-L 410 1952 
-z
-" transform="scale(0.015625)"/>
-      <path id="Iosevka-Custom-29" d="M 819 -1030 
-L 576 -640 
-Q 928 -435 1206 -121 
-Q 1485 192 1657 566 
-Q 1830 941 1897 1353 
-Q 1965 1766 1965 2176 
-Q 1965 2586 1897 2998 
-Q 1830 3411 1657 3785 
-Q 1485 4160 1206 4473 
-Q 928 4787 576 4992 
-L 819 5382 
-Q 1094 5229 1334 5021 
-Q 1574 4813 1766 4560 
-Q 1958 4307 2092 4019 
-Q 2227 3731 2310 3427 
-Q 2394 3123 2429 2806 
-Q 2464 2490 2464 2176 
-Q 2464 1862 2429 1545 
-Q 2394 1229 2310 925 
-Q 2227 621 2092 333 
-Q 1958 45 1766 -208 
-Q 1574 -461 1334 -669 
-Q 1094 -877 819 -1030 
-z
-" transform="scale(0.015625)"/>
-     </defs>
-     <use xlink:href="#Iosevka-Custom-4c"/>
-     <use xlink:href="#Iosevka-Custom-65" transform="translate(49.999985 0)"/>
-     <use xlink:href="#Iosevka-Custom-61" transform="translate(99.999969 0)"/>
-     <use xlink:href="#Iosevka-Custom-72" transform="translate(149.999954 0)"/>
-     <use xlink:href="#Iosevka-Custom-6e" transform="translate(199.999939 0)"/>
-     <use xlink:href="#Iosevka-Custom-69" transform="translate(249.999924 0)"/>
-     <use xlink:href="#Iosevka-Custom-6e" transform="translate(299.999908 0)"/>
-     <use xlink:href="#Iosevka-Custom-67" transform="translate(349.999893 0)"/>
-     <use xlink:href="#Iosevka-Custom-20" transform="translate(399.999878 0)"/>
-     <use xlink:href="#Iosevka-Custom-72" transform="translate(449.999863 0)"/>
-     <use xlink:href="#Iosevka-Custom-61" transform="translate(499.999847 0)"/>
-     <use xlink:href="#Iosevka-Custom-74" transform="translate(549.999832 0)"/>
-     <use xlink:href="#Iosevka-Custom-65" transform="translate(599.999817 0)"/>
-     <use xlink:href="#Iosevka-Custom-20" transform="translate(649.999802 0)"/>
-     <use xlink:href="#Iosevka-Custom-76" transform="translate(699.999786 0)"/>
-     <use xlink:href="#Iosevka-Custom-73" transform="translate(749.999771 0)"/>
-     <use xlink:href="#Iosevka-Custom-2e" transform="translate(799.999756 0)"/>
-     <use xlink:href="#Iosevka-Custom-20" transform="translate(849.999741 0)"/>
-     <use xlink:href="#Iosevka-Custom-69" transform="translate(899.999725 0)"/>
-     <use xlink:href="#Iosevka-Custom-74" transform="translate(949.99971 0)"/>
-     <use xlink:href="#Iosevka-Custom-65" transform="translate(999.999695 0)"/>
-     <use xlink:href="#Iosevka-Custom-72" transform="translate(1049.99968 0)"/>
-     <use xlink:href="#Iosevka-Custom-61" transform="translate(1099.999664 0)"/>
-     <use xlink:href="#Iosevka-Custom-74" transform="translate(1149.999649 0)"/>
-     <use xlink:href="#Iosevka-Custom-69" transform="translate(1199.999634 0)"/>
-     <use xlink:href="#Iosevka-Custom-6f" transform="translate(1249.999619 0)"/>
-     <use xlink:href="#Iosevka-Custom-6e" transform="translate(1299.999603 0)"/>
-     <use xlink:href="#Iosevka-Custom-20" transform="translate(1349.999588 0)"/>
-     <use xlink:href="#Iosevka-Custom-28" transform="translate(1399.999573 0)"/>
-     <use xlink:href="#Iosevka-Custom-6c" transform="translate(1449.999557 0)"/>
-     <use xlink:href="#Iosevka-Custom-6f" transform="translate(1499.999542 0)"/>
-     <use xlink:href="#Iosevka-Custom-67" transform="translate(1549.999527 0)"/>
-     <use xlink:href="#Iosevka-Custom-2d" transform="translate(1599.999512 0)"/>
-     <use xlink:href="#Iosevka-Custom-6c" transform="translate(1649.999496 0)"/>
-     <use xlink:href="#Iosevka-Custom-6f" transform="translate(1699.999481 0)"/>
-     <use xlink:href="#Iosevka-Custom-67" transform="translate(1749.999466 0)"/>
-     <use xlink:href="#Iosevka-Custom-29" transform="translate(1799.999451 0)"/>
-    </g>
-   </g>
-   <g id="legend_1">
-    <g id="line2d_102">
-     <path d="M 53.375625 34.3045 
-L 60.375625 34.3045 
-L 67.375625 34.3045 
-" style="fill: none; stroke: #2196f3; stroke-width: 1.2; stroke-linecap: round"/>
-    </g>
-    <g id="text_14">
-     <!-- olmo-mix-1124.txt -->
-     <g style="fill: #838383" transform="translate(72.975625 36.7545) scale(0.07 -0.07)">
-      <defs>
        <path id="Iosevka-Custom-6d" d="M 307 0 
 L 307 3328 
 L 806 3328 
@@ -1681,6 +1468,13 @@ L 806 0
 L 307 0 
 z
 " transform="scale(0.015625)"/>
+       <path id="Iosevka-Custom-2d" d="M 410 1952 
+L 410 2400 
+L 2790 2400 
+L 2790 1952 
+L 410 1952 
+z
+" transform="scale(0.015625)"/>
        <path id="Iosevka-Custom-78" d="M 339 0 
 L 1325 1664 
 L 339 3328 
@@ -1694,6 +1488,25 @@ L 2278 0
 L 1600 1190 
 L 922 0 
 L 339 0 
+z
+" transform="scale(0.015625)"/>
+       <path id="Iosevka-Custom-2e" d="M 1600 -51 
+Q 1498 -51 1402 -22 
+Q 1306 6 1232 80 
+Q 1158 154 1129 250 
+Q 1101 346 1101 448 
+Q 1101 550 1129 646 
+Q 1158 742 1232 816 
+Q 1306 890 1402 918 
+Q 1498 947 1600 947 
+Q 1702 947 1798 918 
+Q 1894 890 1968 816 
+Q 2042 742 2070 646 
+Q 2099 550 2099 448 
+Q 2099 346 2070 250 
+Q 2042 154 1968 80 
+Q 1894 6 1798 -22 
+Q 1702 -51 1600 -51 
 z
 " transform="scale(0.015625)"/>
       </defs>
@@ -1716,15 +1529,15 @@ z
       <use xlink:href="#Iosevka-Custom-74" transform="translate(799.999756 0)"/>
      </g>
     </g>
-    <g id="line2d_103">
-     <path d="M 53.375625 44.4545 
-L 60.375625 44.4545 
-L 67.375625 44.4545 
+    <g id="line2d_102">
+     <path d="M 242.181457 17.508594 
+L 255.181457 17.508594 
+L 268.181457 17.508594 
 " style="fill: none; stroke: #ef5350; stroke-width: 1.2; stroke-linecap: round"/>
     </g>
-    <g id="text_15">
+    <g id="text_14">
      <!-- dolmino-mix-1124-fused-file-list.txt -->
-     <g style="fill: #838383" transform="translate(72.975625 46.9045) scale(0.07 -0.07)">
+     <g style="fill: #838383" transform="translate(278.581457 22.058594) scale(0.13 -0.13)">
       <defs>
        <path id="Iosevka-Custom-64" d="M 1402 -51 
 Q 1242 -51 1085 -6 
@@ -1848,6 +1661,79 @@ Q 1837 26 1693 -12
 Q 1549 -51 1408 -51 
 z
 " transform="scale(0.015625)"/>
+       <path id="Iosevka-Custom-73" d="M 1594 -51 
+Q 1453 -51 1312 -35 
+Q 1171 -19 1036 29 
+Q 902 77 780 153 
+Q 659 230 572 342 
+Q 486 454 441 592 
+Q 397 730 397 870 
+L 397 890 
+L 896 890 
+L 896 883 
+Q 896 762 963 659 
+Q 1030 557 1132 496 
+Q 1235 435 1353 416 
+Q 1472 397 1594 397 
+Q 1709 397 1827 416 
+Q 1946 435 2048 489 
+Q 2150 544 2224 643 
+Q 2298 742 2298 858 
+Q 2298 973 2237 1072 
+Q 2176 1171 2086 1235 
+Q 1997 1299 1891 1334 
+Q 1786 1370 1677 1395 
+Q 1568 1421 1462 1446 
+Q 1357 1472 1251 1510 
+Q 1146 1549 1046 1597 
+Q 947 1645 857 1712 
+Q 768 1779 694 1862 
+Q 621 1946 569 2045 
+Q 518 2144 489 2253 
+Q 461 2362 461 2470 
+Q 461 2611 502 2742 
+Q 544 2874 627 2986 
+Q 710 3098 825 3174 
+Q 941 3251 1069 3299 
+Q 1197 3347 1334 3363 
+Q 1472 3379 1606 3379 
+Q 1747 3379 1881 3363 
+Q 2016 3347 2147 3299 
+Q 2278 3251 2390 3171 
+Q 2502 3091 2585 2982 
+Q 2669 2874 2710 2739 
+Q 2752 2605 2752 2470 
+L 2752 2451 
+L 2253 2451 
+L 2253 2458 
+Q 2253 2573 2195 2672 
+Q 2138 2771 2042 2832 
+Q 1946 2893 1834 2912 
+Q 1722 2931 1606 2931 
+Q 1498 2931 1386 2912 
+Q 1274 2893 1178 2835 
+Q 1082 2778 1018 2682 
+Q 954 2586 954 2470 
+Q 954 2362 1011 2262 
+Q 1069 2163 1158 2096 
+Q 1248 2029 1353 1993 
+Q 1459 1958 1568 1932 
+Q 1677 1907 1785 1881 
+Q 1894 1856 2000 1821 
+Q 2106 1786 2205 1734 
+Q 2304 1683 2390 1616 
+Q 2477 1549 2553 1465 
+Q 2630 1382 2681 1283 
+Q 2733 1184 2761 1075 
+Q 2790 966 2790 858 
+Q 2790 717 2745 582 
+Q 2701 448 2611 336 
+Q 2522 224 2403 147 
+Q 2285 70 2150 25 
+Q 2016 -19 1875 -35 
+Q 1734 -51 1594 -51 
+z
+" transform="scale(0.015625)"/>
       </defs>
       <use xlink:href="#Iosevka-Custom-64"/>
       <use xlink:href="#Iosevka-Custom-6f" transform="translate(49.999985 0)"/>
@@ -1887,138 +1773,15 @@ z
       <use xlink:href="#Iosevka-Custom-74" transform="translate(1749.999466 0)"/>
      </g>
     </g>
-    <g id="line2d_104">
-     <path d="M 53.375625 54.6045 
-L 60.375625 54.6045 
-L 67.375625 54.6045 
+    <g id="line2d_103">
+     <path d="M 538.581457 17.508594 
+L 551.581457 17.508594 
+L 564.581457 17.508594 
 " style="fill: none; stroke: #4caf50; stroke-width: 1.2; stroke-linecap: round"/>
     </g>
-    <g id="text_16">
-     <!-- nvidia-math1-code2.txt -->
-     <g style="fill: #838383" transform="translate(72.975625 57.0545) scale(0.07 -0.07)">
-      <defs>
-       <path id="Iosevka-Custom-68" d="M 410 0 
-L 410 4704 
-L 909 4704 
-L 909 2746 
-Q 960 2880 1043 3001 
-Q 1126 3123 1244 3212 
-Q 1363 3302 1507 3340 
-Q 1651 3379 1792 3379 
-Q 1952 3379 2105 3334 
-Q 2259 3290 2377 3190 
-Q 2496 3091 2579 2953 
-Q 2662 2816 2710 2665 
-Q 2758 2515 2774 2358 
-Q 2790 2202 2790 2048 
-L 2790 0 
-L 2291 0 
-L 2291 2048 
-Q 2291 2157 2278 2262 
-Q 2266 2368 2234 2467 
-Q 2202 2566 2141 2656 
-Q 2080 2746 1997 2810 
-Q 1914 2874 1811 2902 
-Q 1709 2931 1600 2931 
-Q 1491 2931 1388 2902 
-Q 1286 2874 1203 2810 
-Q 1120 2746 1059 2656 
-Q 998 2566 966 2467 
-Q 934 2368 921 2262 
-Q 909 2157 909 2048 
-L 909 0 
-L 410 0 
-z
-" transform="scale(0.015625)"/>
-       <path id="Iosevka-Custom-63" d="M 1581 -51 
-Q 1414 -51 1241 -16 
-Q 1069 19 921 105 
-Q 774 192 662 323 
-Q 550 454 480 611 
-Q 410 768 384 937 
-Q 358 1107 358 1280 
-L 358 2048 
-Q 358 2221 384 2390 
-Q 410 2560 480 2717 
-Q 550 2874 662 3005 
-Q 774 3136 921 3222 
-Q 1069 3309 1241 3344 
-Q 1414 3379 1581 3379 
-Q 1741 3379 1901 3350 
-Q 2061 3322 2205 3251 
-Q 2349 3181 2464 3069 
-Q 2579 2957 2656 2816 
-Q 2733 2675 2768 2518 
-Q 2803 2362 2803 2202 
-L 2803 2189 
-L 2304 2189 
-L 2304 2195 
-Q 2304 2342 2259 2483 
-Q 2214 2624 2112 2729 
-Q 2010 2835 1869 2883 
-Q 1728 2931 1581 2931 
-Q 1472 2931 1366 2905 
-Q 1261 2880 1171 2816 
-Q 1082 2752 1021 2662 
-Q 960 2573 921 2473 
-Q 883 2374 870 2265 
-Q 858 2157 858 2048 
-L 858 1280 
-Q 858 1171 870 1062 
-Q 883 954 921 854 
-Q 960 755 1021 665 
-Q 1082 576 1171 512 
-Q 1261 448 1366 422 
-Q 1472 397 1581 397 
-Q 1728 397 1869 445 
-Q 2010 493 2112 598 
-Q 2214 704 2259 845 
-Q 2304 986 2304 1133 
-L 2304 1139 
-L 2803 1139 
-L 2803 1126 
-Q 2803 966 2768 809 
-Q 2733 653 2656 512 
-Q 2579 371 2464 259 
-Q 2349 147 2205 76 
-Q 2061 6 1901 -22 
-Q 1741 -51 1581 -51 
-z
-" transform="scale(0.015625)"/>
-      </defs>
-      <use xlink:href="#Iosevka-Custom-6e"/>
-      <use xlink:href="#Iosevka-Custom-76" transform="translate(49.999985 0)"/>
-      <use xlink:href="#Iosevka-Custom-69" transform="translate(99.999969 0)"/>
-      <use xlink:href="#Iosevka-Custom-64" transform="translate(149.999954 0)"/>
-      <use xlink:href="#Iosevka-Custom-69" transform="translate(199.999939 0)"/>
-      <use xlink:href="#Iosevka-Custom-61" transform="translate(249.999924 0)"/>
-      <use xlink:href="#Iosevka-Custom-2d" transform="translate(299.999908 0)"/>
-      <use xlink:href="#Iosevka-Custom-6d" transform="translate(349.999893 0)"/>
-      <use xlink:href="#Iosevka-Custom-61" transform="translate(399.999878 0)"/>
-      <use xlink:href="#Iosevka-Custom-74" transform="translate(449.999863 0)"/>
-      <use xlink:href="#Iosevka-Custom-68" transform="translate(499.999847 0)"/>
-      <use xlink:href="#Iosevka-Custom-31" transform="translate(549.999832 0)"/>
-      <use xlink:href="#Iosevka-Custom-2d" transform="translate(599.999817 0)"/>
-      <use xlink:href="#Iosevka-Custom-63" transform="translate(649.999802 0)"/>
-      <use xlink:href="#Iosevka-Custom-6f" transform="translate(699.999786 0)"/>
-      <use xlink:href="#Iosevka-Custom-64" transform="translate(749.999771 0)"/>
-      <use xlink:href="#Iosevka-Custom-65" transform="translate(799.999756 0)"/>
-      <use xlink:href="#Iosevka-Custom-32" transform="translate(849.999741 0)"/>
-      <use xlink:href="#Iosevka-Custom-2e" transform="translate(899.999725 0)"/>
-      <use xlink:href="#Iosevka-Custom-74" transform="translate(949.99971 0)"/>
-      <use xlink:href="#Iosevka-Custom-78" transform="translate(999.999695 0)"/>
-      <use xlink:href="#Iosevka-Custom-74" transform="translate(1049.99968 0)"/>
-     </g>
-    </g>
-    <g id="line2d_105">
-     <path d="M 53.375625 64.810281 
-L 60.375625 64.810281 
-L 67.375625 64.810281 
-" style="fill: none; stroke: #ffa726; stroke-width: 1.2; stroke-linecap: round"/>
-    </g>
-    <g id="text_17">
+    <g id="text_15">
      <!-- stage1-33-stage2-33-stage3-34.txt -->
-     <g style="fill: #838383" transform="translate(72.975625 67.260281) scale(0.07 -0.07)">
+     <g style="fill: #838383" transform="translate(574.981457 22.058594) scale(0.13 -0.13)">
       <use xlink:href="#Iosevka-Custom-73"/>
       <use xlink:href="#Iosevka-Custom-74" transform="translate(49.999985 0)"/>
       <use xlink:href="#Iosevka-Custom-61" transform="translate(99.999969 0)"/>
@@ -2058,8 +1821,8 @@ L 67.375625 64.810281
   </g>
  </g>
  <defs>
-  <clipPath id="p61f0434d0a">
-   <rect x="47.075625" y="25.3095" width="510.293865" height="248.7465"/>
+  <clipPath id="pff6f9cbaad">
+   <rect x="58.043437" y="43.713923" width="742.67604" height="352.8368"/>
   </clipPath>
  </defs>
 </svg>

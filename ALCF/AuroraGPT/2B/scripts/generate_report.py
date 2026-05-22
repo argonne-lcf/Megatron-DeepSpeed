@@ -34,6 +34,16 @@ for _font in ("Iosevka Custom", "Iosevka", "Iosevka IBM", "Iosevka Nerd Font"):
     if any(f.name == _font for f in plt.matplotlib.font_manager.fontManager.ttflist):
         plt.rcParams["font.family"] = _font
         break
+# Bump every text element ~1.5x over the ambivalent defaults.
+plt.rcParams.update({
+    "font.size": 18,
+    "axes.titlesize": 20,
+    "axes.labelsize": 18,
+    "xtick.labelsize": 15,
+    "ytick.labelsize": 15,
+    "legend.fontsize": 13,
+    "figure.titlesize": 22,
+})
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 OUT_DIR = REPO_ROOT / "ALCF" / "AuroraGPT" / "2B" / "assets"
@@ -62,6 +72,15 @@ DOWNSAMPLE: dict[str, int] = {
     "tokens_per_sec_vs_iter": 5,
     "tokens_per_gpu_per_sec_vs_iter": 5,
     "tflops_lm_vs_runtime": 5,
+}
+
+# Panels where we want a scatter (markers, no connecting line) instead of
+# the default line plot. Iteration time is dominated by occasional spikes
+# from many overlapping runs; drawing them as lines fills the canvas with
+# spurious vertical segments connecting unrelated samples.
+SCATTER_PANELS: set[str] = {
+    "iter_time_vs_runtime",
+    "iter_time_vs_runtime_zoom",
 }
 
 # Same 22 filter clauses as the report.
@@ -100,7 +119,10 @@ REPORT_FILTERS: dict[str, Any] = {
         ]}},
         {"tags": {"$nin": ["cooldown"]}},
         {"config.args.value.data_file_list":
-            {"$nin": ["ALCF/data-lists/aurora/books.txt"]}},
+            {"$nin": [
+                "ALCF/data-lists/aurora/books.txt",
+                "ALCF/data-lists/aurora/nvidia-math1-code2.txt",
+            ]}},
     ]
 }
 
@@ -236,11 +258,12 @@ def plot_panel(
     x_log: bool,
     y_log: bool,
 ) -> None:
-    fig, ax = plt.subplots(figsize=(8, 4.5))
+    fig, ax = plt.subplots(figsize=(12, 6.5))
     drew_any = False
     curves: list[tuple[np.ndarray, np.ndarray, str]] = []
     panel_rows: list[dict] = []
     stride = DOWNSAMPLE.get(fname, 1)
+    use_scatter = fname in SCATTER_PANELS
     for gkey, runs_in_group in runs_by_group.items():
         xs: list[np.ndarray] = []
         ys: list[np.ndarray] = []
@@ -271,8 +294,15 @@ def plot_panel(
             x = pd.to_datetime(x, unit="s")
         dfl = gkey[5] or "(unknown data)"
         dfl_short = Path(dfl).name if dfl else "?"
-        line, = ax.plot(x, y, label=dfl_short, linewidth=1.2)
-        curves.append((x, y, line.get_color()))
+        if use_scatter:
+            sc = ax.scatter(x, y, s=4, alpha=0.35, label=dfl_short, linewidths=0)
+            color = sc.get_facecolor()[0]
+            from matplotlib.colors import to_hex
+            color = to_hex(color[:3])
+        else:
+            line, = ax.plot(x, y, label=dfl_short, linewidth=1.2)
+            color = line.get_color()
+        curves.append((x, y, color))
         drew_any = True
         # Record what we just plotted (post-sort, post-stride, post-unit-conversion)
         # so the parquet on disk matches the figure 1-to-1.
@@ -282,7 +312,7 @@ def plot_panel(
             x_save = np.asarray(x)
         panel_rows.append(pd.DataFrame({
             "group_data_file": dfl_short,
-            "color": line.get_color(),
+            "color": color,
             "x": x_save,
             "y": y,
         }))
@@ -290,7 +320,10 @@ def plot_panel(
         plt.close(fig)
         print(f"  [skip] {fname}: no data points")
         return
-    ax.set_title(title)
+    # Title moves into the legend area when the legend lives above the
+    # axes, so drop the redundant title.
+    if len(runs_by_group) > 8:
+        ax.set_title(title)
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
     if x_log:
@@ -300,16 +333,32 @@ def plot_panel(
     if fname in YLIMS:
         ax.set_ylim(*YLIMS[fname])
     if len(runs_by_group) <= 8:
-        ax.legend(loc="best", fontsize=7, frameon=False)
+        # Park the legend above the axes so it never sits on top of the data.
+        leg = ax.legend(
+            loc="lower center",
+            bbox_to_anchor=(0.5, 1.02),
+            ncol=min(len(runs_by_group), 4),
+            frameon=False,
+            handlelength=2.0,
+        )
+        # Make scatter markers full-opacity in the legend even though the
+        # scatter dots themselves are translucent.
+        if use_scatter:
+            for handle in leg.legend_handles:
+                handle.set_alpha(1.0)
+                handle.set_sizes([40])
 
     inset_cfg = INSETS.get(fname)
     if inset_cfg is not None:
         axins = ax.inset_axes(inset_cfg["bounds"])
         for x, y, color in curves:
-            axins.plot(x, y, color=color, linewidth=1.0)
+            if use_scatter:
+                axins.scatter(x, y, s=4, alpha=0.5, color=color, linewidths=0)
+            else:
+                axins.plot(x, y, color=color, linewidth=1.0)
         axins.set_xlim(*inset_cfg["xlim"])
         axins.set_ylim(*inset_cfg["ylim"])
-        axins.tick_params(labelsize=7)
+        axins.tick_params(labelsize=11)
         ax.indicate_inset_zoom(axins, edgecolor="0.4", alpha=0.6, linewidth=0.8)
 
     fig.tight_layout()

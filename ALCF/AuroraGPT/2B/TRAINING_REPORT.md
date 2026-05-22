@@ -27,6 +27,7 @@ The same 22-clause filter as the report:
 - `tokenizer_model = google/gemma-7b`
 - summary `loss/lm loss` is not `NaN`
 - tag is not `cooldown`
+- `data_file_list NOT IN {books.txt, nvidia-math1-code2.txt}`
 - excluded: `treasured-thunder-4350`, `grateful-dust-4351`, `glowing-disco-4352`,
   `happy-surf-4362`, `laced-puddle-4445`, `sage-universe-4443`, `dandy-sea-4440`,
   `twilight-dream-4439`, `vibrant-glitter-4358`, `dulcet-forest-4361`,
