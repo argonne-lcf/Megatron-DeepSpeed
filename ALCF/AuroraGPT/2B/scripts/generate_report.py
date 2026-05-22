@@ -41,8 +41,10 @@ for _font in ("Iosevka Custom", "Iosevka", "Iosevka IBM", "Iosevka Nerd Font"):
         break
 
 THEMES: dict[str, dict] = {
-    "light": {"fg": "#262626", "bg": "white"},
-    "dark":  {"fg": "#f8f8f8", "bg": "#1a1a1a"},
+    # Background stays transparent for both — only the text/axis color
+    # changes so the figures sit on either a light or a dark page.
+    "light": {"fg": "#262626"},
+    "dark":  {"fg": "#f8f8f8"},
 }
 
 
@@ -51,7 +53,6 @@ def apply_theme(theme: str) -> None:
     if _IOSEVKA:
         plt.rcParams["font.family"] = _IOSEVKA
     fg = THEMES[theme]["fg"]
-    bg = THEMES[theme]["bg"]
     plt.rcParams.update({
         # ~1.75x the ambivalent defaults
         "font.size": 20,
@@ -65,17 +66,14 @@ def apply_theme(theme: str) -> None:
         "legend.fontsize": 15,
         "figure.titlesize": 24,
         "figure.titleweight": "semibold",
-        # Theme colors
+        # Text / axis colors only — leave the backgrounds alone so the
+        # SVG ships with no fill behind the plot area.
         "text.color": fg,
         "axes.labelcolor": fg,
         "axes.edgecolor": fg,
         "axes.titlecolor": fg,
         "xtick.color": fg,
         "ytick.color": fg,
-        "figure.facecolor": bg,
-        "axes.facecolor": bg,
-        "savefig.facecolor": bg,
-        "savefig.edgecolor": bg,
     })
 ENTITY = "aurora_gpt"
 PROJECT = "AuroraGPT"
@@ -322,14 +320,14 @@ def plot_panel(
         dfl = gkey[5] or "(unknown data)"
         dfl_short = Path(dfl).name if dfl else "?"
         if use_scatter:
-            # Big enough to read individually, with a thin contrasting
-            # edge so overlapping points stay distinguishable instead of
-            # merging into one blob.
-            edge = THEMES[theme]["bg"]
+            # Big enough to read individually. No edge color because the
+            # background is transparent — we use a contrasting (foreground)
+            # edge with reduced alpha so overlapping points stay
+            # distinguishable on either light or dark pages.
             sc = ax.scatter(
                 x, y,
                 s=28, alpha=0.55, label=dfl_short,
-                linewidths=0.6, edgecolors=edge,
+                linewidths=0.6, edgecolors=THEMES[theme]["fg"],
             )
             color = sc.get_facecolor()[0]
             from matplotlib.colors import to_hex
@@ -388,11 +386,10 @@ def plot_panel(
         axins = ax.inset_axes(inset_cfg["bounds"])
         for x, y, color in curves:
             if use_scatter:
-                edge = THEMES[theme]["bg"]
                 axins.scatter(
                     x, y,
                     s=24, alpha=0.55, color=color,
-                    linewidths=0.5, edgecolors=edge,
+                    linewidths=0.5, edgecolors=THEMES[theme]["fg"],
                 )
             else:
                 axins.plot(x, y, color=color, linewidth=1.0)
@@ -404,11 +401,7 @@ def plot_panel(
     fig.tight_layout()
     out = out_dir / f"{fname}.svg"
     out_dir.mkdir(parents=True, exist_ok=True)
-    # `transparent=False` forces the figure/axes facecolors set by the
-    # theme to land in the SVG; otherwise matplotlib's SVG backend writes
-    # "fill: none" and the dark theme looks identical to the light one.
-    fig.savefig(out, transparent=False,
-                facecolor=THEMES[theme]["bg"], edgecolor=THEMES[theme]["bg"])
+    fig.savefig(out, transparent=True)
     plt.close(fig)
     print(f"  wrote {out.relative_to(REPO_ROOT)}")
 
@@ -491,8 +484,7 @@ def plot_train_val_overlay(
     fig.tight_layout()
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"{fname}.svg"
-    fig.savefig(out, transparent=False,
-                facecolor=THEMES[theme]["bg"], edgecolor=THEMES[theme]["bg"])
+    fig.savefig(out, transparent=True)
     plt.close(fig)
     print(f"  wrote {out.relative_to(REPO_ROOT)}")
     if theme == "light" and panel_rows:
