@@ -4,6 +4,10 @@ Local reproduction of the
 [AuroraGPT-2B Pre-Training](https://api.wandb.ai/links/aurora_gpt/zyabwz9i)
 Weights & Biases report.
 
+Each panel is rendered twice — `assets/light/<panel>.svg` (text `#262626`
+on white) and `assets/dark/<panel>.svg` (text `#f8f8f8` on `#1a1a1a`).
+The embedded versions below point at the light variant.
+
 The plots below are regenerated from the live `aurora_gpt/AuroraGPT` W&B
 project using
 [`scripts/generate_report.py`](scripts/generate_report.py) and rendered with
@@ -40,60 +44,64 @@ so each line represents one training segment / data mixture.
 
 ## Loss
 
-### LM loss vs. consumed tokens (log y)
+### Training loss vs. consumed tokens (log y)
 
-![](assets/loss_lm_loss_vs_tokens.svg)
+![](assets/light/loss_lm_loss_vs_tokens.svg)
 
-### LM loss vs. consumed tokens (linear y)
+### Training loss vs. consumed tokens (linear y)
 
-![](assets/loss_lm_loss_vs_tokens_linear.svg)
+![](assets/light/loss_lm_loss_vs_tokens_linear.svg)
 
 ### Gradient norm vs. consumed tokens
 
-![](assets/grad_norm_vs_tokens.svg)
+![](assets/light/grad_norm_vs_tokens.svg)
 
-### Validation LM loss vs. iteration
+### Validation loss vs. iteration
 
-![](assets/val_lm_loss_vs_iter.svg)
+![](assets/light/val_lm_loss_vs_iter.svg)
+
+### Training & validation loss vs. iteration
+
+![](assets/light/train_val_loss_vs_iter.svg)
 
 ## Learning rate
 
 ### Learning rate vs. iteration (linear)
 
-![](assets/lr_vs_iter_linear.svg)
+![](assets/light/lr_vs_iter_linear.svg)
 
 ### Learning rate vs. iteration (log-log)
 
-![](assets/lr_vs_iter_loglog.svg)
+![](assets/light/lr_vs_iter_loglog.svg)
 
 ## Throughput
 
 ### Iteration time vs. wall time
 
-![](assets/iter_time_vs_runtime.svg)
+![](assets/light/iter_time_vs_runtime.svg)
 
-### Iteration time vs. wall time (zoomed to 0–5 s)
+### Iteration time vs. wall time (zoomed to 0–50 s)
 
-![](assets/iter_time_vs_runtime_zoom.svg)
+![](assets/light/iter_time_vs_runtime_zoom.svg)
 
 ### Tokens / sec vs. iteration
 
-![](assets/tokens_per_sec_vs_iter.svg)
+![](assets/light/tokens_per_sec_vs_iter.svg)
 
 ### Tokens / GPU / sec vs. iteration
 
-![](assets/tokens_per_gpu_per_sec_vs_iter.svg)
+![](assets/light/tokens_per_gpu_per_sec_vs_iter.svg)
 
 ### TFLOPs vs. wall time
 
-![](assets/tflops_lm_vs_runtime.svg)
+![](assets/light/tflops_lm_vs_runtime.svg)
 
 ## Progress
 
 ### Approx. parameters in billions vs. wall time
 
-![](assets/params_in_billions_vs_time.svg)
+![](assets/light/params_in_billions_vs_time.svg)
 
 ### Consumed tokens vs. wall time
 
-![](assets/consumed_tokens_vs_time.svg)
+![](assets/light/consumed_tokens_vs_time.svg)

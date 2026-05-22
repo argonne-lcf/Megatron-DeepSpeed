@@ -28,27 +28,55 @@ import numpy as np
 import pandas as pd
 import wandb
 
-plt.style.use(ambivalent.STYLES["ambivalent"])
-# Use Iosevka for everything if it is installed locally.
-for _font in ("Iosevka Custom", "Iosevka", "Iosevka IBM", "Iosevka Nerd Font"):
-    if any(f.name == _font for f in plt.matplotlib.font_manager.fontManager.ttflist):
-        plt.rcParams["font.family"] = _font
-        break
-# Bump every text element ~1.5x over the ambivalent defaults.
-plt.rcParams.update({
-    "font.size": 18,
-    "axes.titlesize": 20,
-    "axes.labelsize": 18,
-    "xtick.labelsize": 15,
-    "ytick.labelsize": 15,
-    "legend.fontsize": 13,
-    "figure.titlesize": 22,
-})
-
 REPO_ROOT = Path(__file__).resolve().parents[4]
-OUT_DIR = REPO_ROOT / "ALCF" / "AuroraGPT" / "2B" / "assets"
+ASSETS_DIR = REPO_ROOT / "ALCF" / "AuroraGPT" / "2B" / "assets"
 DATA_DIR = REPO_ROOT / "ALCF" / "AuroraGPT" / "2B" / "data"
 CACHE_DIR = REPO_ROOT / "ALCF" / "AuroraGPT" / "2B" / ".cache"
+
+# Pick the first Iosevka family that is locally installed (if any).
+_IOSEVKA = None
+for _font in ("Iosevka Custom", "Iosevka", "Iosevka IBM", "Iosevka Nerd Font"):
+    if any(f.name == _font for f in plt.matplotlib.font_manager.fontManager.ttflist):
+        _IOSEVKA = _font
+        break
+
+THEMES: dict[str, dict] = {
+    "light": {"fg": "#262626", "bg": "white"},
+    "dark":  {"fg": "#f8f8f8", "bg": "#1a1a1a"},
+}
+
+
+def apply_theme(theme: str) -> None:
+    plt.style.use(ambivalent.STYLES["ambivalent"])
+    if _IOSEVKA:
+        plt.rcParams["font.family"] = _IOSEVKA
+    fg = THEMES[theme]["fg"]
+    bg = THEMES[theme]["bg"]
+    plt.rcParams.update({
+        # ~1.75x the ambivalent defaults
+        "font.size": 20,
+        "font.weight": "medium",
+        "axes.titlesize": 22,
+        "axes.titleweight": "semibold",
+        "axes.labelsize": 20,
+        "axes.labelweight": "semibold",
+        "xtick.labelsize": 17,
+        "ytick.labelsize": 17,
+        "legend.fontsize": 15,
+        "figure.titlesize": 24,
+        "figure.titleweight": "semibold",
+        # Theme colors
+        "text.color": fg,
+        "axes.labelcolor": fg,
+        "axes.edgecolor": fg,
+        "axes.titlecolor": fg,
+        "xtick.color": fg,
+        "ytick.color": fg,
+        "figure.facecolor": bg,
+        "axes.facecolor": bg,
+        "savefig.facecolor": bg,
+        "savefig.edgecolor": bg,
+    })
 ENTITY = "aurora_gpt"
 PROJECT = "AuroraGPT"
 
@@ -125,18 +153,18 @@ REPORT_FILTERS: dict[str, Any] = {
 
 # (filename, title, x_metric, y_metric, x_label, y_label, x_log, y_log)
 PANELS = [
-    ("loss_lm_loss_vs_tokens",       "LM loss vs. consumed tokens",
+    ("loss_lm_loss_vs_tokens",       "Training loss vs. consumed tokens",
      "training/consumed_tokens", "loss/lm loss",
-     "Consumed tokens", "LM loss", False, True),
-    ("loss_lm_loss_vs_tokens_linear", "LM loss vs. consumed tokens (linear)",
+     "Consumed tokens", "Training loss", False, True),
+    ("loss_lm_loss_vs_tokens_linear", "Training loss vs. consumed tokens (linear)",
      "training/consumed_tokens", "loss/lm loss",
-     "Consumed tokens", "LM loss", False, False),
+     "Consumed tokens", "Training loss", False, False),
     ("grad_norm_vs_tokens",          "Gradient norm vs. consumed tokens",
      "training/consumed_tokens", "loss/grad_norm",
      "Consumed tokens", "Gradient norm", False, True),
-    ("val_lm_loss_vs_iter",          "Validation LM loss vs. iteration",
+    ("val_lm_loss_vs_iter",          "Validation loss vs. iteration",
      "val/iteration", "val/lm loss",
-     "Validation iteration", "Val LM loss", False, False),
+     "Validation iteration", "Validation loss", False, False),
     ("iter_time_vs_runtime",         "Iteration time vs. wall time",
      "_runtime", "training/iteration_time",
      "Wall time (min)", "Iteration time (s)", False, False),
@@ -254,7 +282,9 @@ def plot_panel(
     y_label: str,
     x_log: bool,
     y_log: bool,
+    theme: str,
 ) -> None:
+    out_dir = ASSETS_DIR / theme
     fig, ax = plt.subplots(figsize=(12, 6.5))
     drew_any = False
     curves: list[tuple[np.ndarray, np.ndarray, str]] = []
@@ -292,7 +322,15 @@ def plot_panel(
         dfl = gkey[5] or "(unknown data)"
         dfl_short = Path(dfl).name if dfl else "?"
         if use_scatter:
-            sc = ax.scatter(x, y, s=4, alpha=0.35, label=dfl_short, linewidths=0)
+            # Big enough to read individually, with a thin contrasting
+            # edge so overlapping points stay distinguishable instead of
+            # merging into one blob.
+            edge = THEMES[theme]["bg"]
+            sc = ax.scatter(
+                x, y,
+                s=28, alpha=0.55, label=dfl_short,
+                linewidths=0.6, edgecolors=edge,
+            )
             color = sc.get_facecolor()[0]
             from matplotlib.colors import to_hex
             color = to_hex(color[:3])
@@ -350,7 +388,12 @@ def plot_panel(
         axins = ax.inset_axes(inset_cfg["bounds"])
         for x, y, color in curves:
             if use_scatter:
-                axins.scatter(x, y, s=4, alpha=0.5, color=color, linewidths=0)
+                edge = THEMES[theme]["bg"]
+                axins.scatter(
+                    x, y,
+                    s=24, alpha=0.55, color=color,
+                    linewidths=0.5, edgecolors=edge,
+                )
             else:
                 axins.plot(x, y, color=color, linewidth=1.0)
         axins.set_xlim(*inset_cfg["xlim"])
@@ -359,17 +402,103 @@ def plot_panel(
         ax.indicate_inset_zoom(axins, edgecolor="0.4", alpha=0.6, linewidth=0.8)
 
     fig.tight_layout()
-    out = OUT_DIR / f"{fname}.svg"
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out)
+    out = out_dir / f"{fname}.svg"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # `transparent=False` forces the figure/axes facecolors set by the
+    # theme to land in the SVG; otherwise matplotlib's SVG backend writes
+    # "fill: none" and the dark theme looks identical to the light one.
+    fig.savefig(out, transparent=False,
+                facecolor=THEMES[theme]["bg"], edgecolor=THEMES[theme]["bg"])
     plt.close(fig)
     print(f"  wrote {out.relative_to(REPO_ROOT)}")
 
-    if panel_rows:
+    # The data is identical across themes, so only dump it once.
+    if theme == "light" and panel_rows:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         panel_df = pd.concat(panel_rows, ignore_index=True)
         data_out = DATA_DIR / f"{fname}.parquet"
         panel_df.to_parquet(data_out, index=False)
+        print(f"  wrote {data_out.relative_to(REPO_ROOT)}")
+
+
+def plot_train_val_overlay(
+    runs_by_group: dict[tuple, list[wandb.apis.public.Run]],
+    theme: str,
+) -> None:
+    """Overlay training loss (dotted) and validation loss (solid) per group."""
+    fname = "train_val_loss_vs_iter"
+    out_dir = ASSETS_DIR / theme
+    fig, ax = plt.subplots(figsize=(12, 6.5))
+    drew_any = False
+    panel_rows: list[pd.DataFrame] = []
+    for gkey, runs_in_group in runs_by_group.items():
+        train_xs: list[np.ndarray] = []
+        train_ys: list[np.ndarray] = []
+        val_xs: list[np.ndarray] = []
+        val_ys: list[np.ndarray] = []
+        for run in runs_in_group:
+            try:
+                tdf = load_pair(run, "loss/iteration", "loss/lm loss")
+                vdf = load_pair(run, "val/iteration", "val/lm loss")
+            except Exception as e:  # noqa: BLE001
+                print(f"    [warn] {run.id}: {e}")
+                continue
+            if not tdf.empty and {"loss/iteration", "loss/lm loss"}.issubset(tdf.columns):
+                sub = tdf[["loss/iteration", "loss/lm loss"]].dropna()
+                train_xs.append(sub["loss/iteration"].to_numpy())
+                train_ys.append(sub["loss/lm loss"].to_numpy())
+            if not vdf.empty and {"val/iteration", "val/lm loss"}.issubset(vdf.columns):
+                sub = vdf[["val/iteration", "val/lm loss"]].dropna()
+                val_xs.append(sub["val/iteration"].to_numpy())
+                val_ys.append(sub["val/lm loss"].to_numpy())
+        if not (train_xs or val_xs):
+            continue
+        dfl_short = Path(gkey[5] or "?").name
+        color = None
+        if train_xs:
+            xt = np.concatenate(train_xs); yt = np.concatenate(train_ys)
+            order = np.argsort(xt); xt, yt = xt[order], yt[order]
+            # Stride down so the dotted line stays readable.
+            xt, yt = xt[::10], yt[::10]
+            line, = ax.plot(xt, yt, linestyle=":", linewidth=1.4,
+                            label=f"{dfl_short} (train)")
+            color = line.get_color()
+            panel_rows.append(pd.DataFrame({
+                "group_data_file": dfl_short, "kind": "train",
+                "color": color, "x": xt, "y": yt,
+            }))
+        if val_xs:
+            xv = np.concatenate(val_xs); yv = np.concatenate(val_ys)
+            order = np.argsort(xv); xv, yv = xv[order], yv[order]
+            line, = ax.plot(xv, yv, linestyle="-", linewidth=1.8,
+                            color=color, label=f"{dfl_short} (val)")
+            panel_rows.append(pd.DataFrame({
+                "group_data_file": dfl_short, "kind": "val",
+                "color": line.get_color(), "x": xv, "y": yv,
+            }))
+        drew_any = True
+    if not drew_any:
+        plt.close(fig); return
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel("Loss")
+    ax.set_yscale("log")
+    leg = ax.legend(
+        loc="lower center", bbox_to_anchor=(0.5, 1.02),
+        ncol=2, frameon=False, handlelength=2.5,
+    )
+    for handle in leg.legend_handles:
+        handle.set_alpha(1.0)
+    fig.tight_layout()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = out_dir / f"{fname}.svg"
+    fig.savefig(out, transparent=False,
+                facecolor=THEMES[theme]["bg"], edgecolor=THEMES[theme]["bg"])
+    plt.close(fig)
+    print(f"  wrote {out.relative_to(REPO_ROOT)}")
+    if theme == "light" and panel_rows:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        data_out = DATA_DIR / f"{fname}.parquet"
+        pd.concat(panel_rows, ignore_index=True).to_parquet(data_out, index=False)
         print(f"  wrote {data_out.relative_to(REPO_ROOT)}")
 
 
@@ -382,9 +511,14 @@ def main() -> int:
         runs_by_group[group_key(r)].append(r)
     print(f"grouped into {len(runs_by_group)} group(s)")
 
-    for panel in PANELS:
-        print(f"panel {panel[0]}...")
-        plot_panel(runs_by_group, *panel)
+    for theme in THEMES:
+        print(f"theme: {theme}")
+        apply_theme(theme)
+        for panel in PANELS:
+            print(f"  panel {panel[0]}...")
+            plot_panel(runs_by_group, *panel, theme=theme)
+        print(f"  panel train_val_loss_vs_iter...")
+        plot_train_val_overlay(runs_by_group, theme=theme)
     return 0
 
 
