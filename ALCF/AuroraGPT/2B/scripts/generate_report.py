@@ -5,8 +5,10 @@ Pulls run histories from the `aurora_gpt/AuroraGPT` W&B project using the same
 filter as the public report
 (https://api.wandb.ai/links/aurora_gpt/zyabwz9i),
 groups runs the same way the report does (machine / NHOSTS / torch_version /
-GBS / optimizer / data_file_list), and emits one PNG per panel into
-ALCF/AuroraGPT/2B/assets/.
+GBS / optimizer / data_file_list), and emits one SVG per panel into
+ALCF/AuroraGPT/2B/assets/. The exact (x, y) arrays plotted in each panel are
+also dumped to ALCF/AuroraGPT/2B/data/<panel>.parquet so anyone can rebuild
+the figures (or re-plot in a different tool) without hitting the W&B API.
 
 Run from the repo root:
 
@@ -27,9 +29,15 @@ import pandas as pd
 import wandb
 
 plt.style.use(ambivalent.STYLES["ambivalent"])
+# Use Iosevka for everything if it is installed locally.
+for _font in ("Iosevka Custom", "Iosevka", "Iosevka IBM", "Iosevka Nerd Font"):
+    if any(f.name == _font for f in plt.matplotlib.font_manager.fontManager.ttflist):
+        plt.rcParams["font.family"] = _font
+        break
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 OUT_DIR = REPO_ROOT / "ALCF" / "AuroraGPT" / "2B" / "assets"
+DATA_DIR = REPO_ROOT / "ALCF" / "AuroraGPT" / "2B" / "data"
 CACHE_DIR = REPO_ROOT / "ALCF" / "AuroraGPT" / "2B" / ".cache"
 ENTITY = "aurora_gpt"
 PROJECT = "AuroraGPT"
@@ -231,6 +239,7 @@ def plot_panel(
     fig, ax = plt.subplots(figsize=(8, 4.5))
     drew_any = False
     curves: list[tuple[np.ndarray, np.ndarray, str]] = []
+    panel_rows: list[dict] = []
     stride = DOWNSAMPLE.get(fname, 1)
     for gkey, runs_in_group in runs_by_group.items():
         xs: list[np.ndarray] = []
@@ -265,6 +274,18 @@ def plot_panel(
         line, = ax.plot(x, y, label=dfl_short, linewidth=1.2)
         curves.append((x, y, line.get_color()))
         drew_any = True
+        # Record what we just plotted (post-sort, post-stride, post-unit-conversion)
+        # so the parquet on disk matches the figure 1-to-1.
+        if hasattr(x, "to_numpy"):
+            x_save = x.to_numpy()
+        else:
+            x_save = np.asarray(x)
+        panel_rows.append(pd.DataFrame({
+            "group_data_file": dfl_short,
+            "color": line.get_color(),
+            "x": x_save,
+            "y": y,
+        }))
     if not drew_any:
         plt.close(fig)
         print(f"  [skip] {fname}: no data points")
@@ -297,6 +318,13 @@ def plot_panel(
     fig.savefig(out)
     plt.close(fig)
     print(f"  wrote {out.relative_to(REPO_ROOT)}")
+
+    if panel_rows:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        panel_df = pd.concat(panel_rows, ignore_index=True)
+        data_out = DATA_DIR / f"{fname}.parquet"
+        panel_df.to_parquet(data_out, index=False)
+        print(f"  wrote {data_out.relative_to(REPO_ROOT)}")
 
 
 def main() -> int:
