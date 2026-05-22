@@ -492,12 +492,16 @@ def plot_train_val_overlay(
     if not drew_any:
         plt.close(fig); return
     ax.set_xlabel("Iteration")
-    ax.set_ylabel("Loss  (line = train, markers = val)")
+    ax.set_ylabel("Loss")
     ax.set_yscale("log")
-    ax.legend(
+    leg = ax.legend(
         legend_handles, legend_labels,
         loc="best", frameon=False, handlelength=2.8,
+        title="── Train     ● Validation",
+        title_fontsize=plt.rcParams["legend.fontsize"],
+        alignment="left",
     )
+    leg._legend_box.align = "left"
     fig.tight_layout()
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"{fname}.svg"
