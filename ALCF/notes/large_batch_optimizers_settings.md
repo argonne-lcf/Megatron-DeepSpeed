@@ -24,7 +24,7 @@ Your global batch size will be: `num_gpus*micro_batch_size*GRAD_ACC_STEPS`, micr
 
 ### Adding custom optimizers
 To add a custom optimizer, you have to modify the following files:
-- `megatron/optimizer/__init__.py`: [muon example](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/994f2a129d465cc50e6c35af075eb3292874effe/megatron/optimizer/__init__.py#L434), note that you either heve to import the optimizer from a pre-installed package or add it in the `megatron/optimizer/` folder.
+- `megatron/optimizer/__init__.py`: [muon example](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/994f2a129d465cc50e6c35af075eb3292874effe/megatron/optimizer/__init__.py#L434), note that you either have to import the optimizer from a pre-installed package or add it in the `megatron/optimizer/` folder.
 - `megatron/arguments.py`: [optimizer arguments](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/994f2a129d465cc50e6c35af075eb3292874effe/megatron/arguments.py#L1070), to add the optimizer arguments
 - `megatron/arguments.py`: [list of valid optimizers](https://github.com/argonne-lcf/Megatron-DeepSpeed/blob/994f2a129d465cc50e6c35af075eb3292874effe/megatron/arguments.py#L1485), to add the new optimizer to the list of valid optimizers
 
